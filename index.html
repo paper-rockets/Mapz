@@ -389,7 +389,13 @@ svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 
 /* ---------- overlays ---------- */
 dialog{border:1px solid var(--line-2);border-radius:16px;padding:0;background:var(--panel);color:var(--text);box-shadow:var(--shadow-lg);width:min(540px,calc(100vw - 32px));max-height:calc(100% - 32px)}
-dialog:has(#f-import){width:min(760px,calc(100vw - 32px))}
+dialog:has(#f-import),dialog:has(#f-table){width:min(760px,calc(100vw - 32px))}
+.ti-switch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px}
+.ti-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0 10px}.ti-cols .field{margin-top:8px}.ti-cols select.input{min-height:34px;padding:5px 8px}
+.ti-parties{display:grid;gap:6px;margin-top:10px;max-height:320px;overflow:auto;padding-right:4px}
+.ti-party{display:grid;grid-template-columns:auto minmax(0,1fr) 130px;gap:4px 8px;align-items:center;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:var(--bg-2)}
+.ti-party .input{min-height:32px;padding:4px 8px}.ti-party small{grid-column:2/-1;font:500 11px var(--mono);color:var(--muted)}
+.ti-party.off{opacity:.5}.ti-party input[type=checkbox]{width:18px;height:18px;accent-color:var(--gold)}
 dialog::backdrop{background:rgba(3,7,16,.6);backdrop-filter:blur(3px)}
 .dlg{display:flex;flex-direction:column;max-height:calc(100vh - 40px)}
 .dlg-head{display:flex;align-items:center;gap:10px;padding:18px 20px 6px}
@@ -778,7 +784,7 @@ function demoCase() {
       AC('a1', 'Eleanor Whitfield', 'RBC Chequing', '003-11842 5029917', 'bank', { riskRating: 'low', confidence: 'confirmed' }),
       AC('a2', 'Eleanor Whitfield', 'RBC Savings', '003-11842 5031188', 'bank', { riskRating: 'low', confidence: 'confirmed' }),
       AC('a3', 'Eleanor Whitfield', 'Wealthsimple Crypto', 'WS-CR-88410273', 'payment', { notes: 'Opened in April 2025 on the "recovery agent\'s" instructions.' }),
-      AC('a4', 'Kevin Osei', 'TD', '004-22019 6641205', 'bank', { riskRating: 'high', status: 'closed' }),
+      AC('a4', 'Kevin Osei', 'TD', '004-22019 6641205', 'bank', { riskRating: 'high' }),
       AC('a5', 'Aaliyah Brooks', 'Scotiabank', '002-40117 3308812', 'bank', { riskRating: 'high' }),
       AC('a6', 'Crestline Consulting Ltd.', 'BMO Business', '001-78820 1994306', 'business', { riskRating: 'high', expectedActivity: 'Software consulting income' }),
       AC('a7', 'Marcus Vale', 'CIBC', '010-06612 8812004', 'bank', { riskRating: 'high' }),
@@ -878,7 +884,7 @@ function demoCase2() {
       AC('d4', 'Sofia Lindqvist', 'Wise', 'WISE-CA-4471902836', 'payment', { riskRating: 'high', status: 'closed' }),
       AC('d5', 'Grant Whitaker', 'CIBC', '010-55120 9934011', 'bank', { riskRating: 'high' }),
       AC('d6', 'Lucky Harbour Trading Ltd.', 'HSBC Hong Kong', 'HK-004-512-338271-838', 'business', { country: 'HK', riskRating: 'high' }),
-      AC('d7', '', 'Ethereum wallet', '0x8f3a91c27be4d05a6c11e9f2b7d4a0c93e51f6b2', 'crypto', { notes: 'Holder unknown. Receives from Sofia Lindqvist and Grant Whitaker.' })
+      AC('d7', '', 'Ethereum wallet', '0x8f3a91c27be4d05a6c11e9f2b7d4a0c93e51f6b2', 'crypto', { notes: 'Holder unknown. Receives from two different accounts.' })
     ],
     transactions: [
       // Fake supplier invoices to the dental clinic
@@ -900,7 +906,7 @@ function demoCase2() {
       T('2025-07-15', 'c3', 'd3', 9500, 'Interac e-Transfer', '"Bail" for his grandson'),
       T('2025-07-16', 'c3', 'd3', 7800, 'Interac e-Transfer', '"Court fee"'),
       T('2025-07-17', 'd3', 'd4', 16500, 'Electronic funds transfer'),
-      T('2025-07-18', 'd4', 'd7', 16200, 'Crypto purchase (Ether)'),
+      T('2025-07-18', 'd4', 'd7', 17400, 'Crypto purchase (Ether)', 'Empties the account before it is closed'),
       // Car deposit scam
       T('2025-10-02', 'c4', 'd2', 14500, 'Domestic wire', 'Deposit on a 2021 pickup truck'),
       T('2025-10-06', 'd2', 'd6', 32000, 'International wire', '"Vehicle parts" invoice LH-8020'),
@@ -2624,6 +2630,7 @@ function openGuide() {
     <div class="guide-credit">Case Brain · Concept and prototype by Maciek Wilkos</div>`, null, null);
 }
 $('#dlg-body').addEventListener('click', e => {
+  if (e.target.closest('[data-table-import]')) { openTableImport(); return; }
   if (e.target.closest('[data-copy-master]')) { copyText(MASTER_AI_PROMPT, 'Instructions copied. Paste them into ChatGPT with your case notes.'); return; }
   const b = e.target.closest('.choice button'); if (!b) return;
   const c = b.parentElement; c.dataset.value = b.dataset.v; $$('button', c).forEach(x => x.classList.toggle('on', x === b));
@@ -2941,7 +2948,7 @@ function parseCaseBatch(text, commit = false) {
 const importTotal = c => Object.values(c).reduce((a, b) => a + b, 0);
 const importSummary = c => [['parties','person','people'],['accounts','account','accounts'],['transactions','payment','payments'],['identifiers','detail','details'],['notes','note','notes']].filter(([k]) => c[k]).map(([k, one, many]) => `${c[k]} ${c[k] === 1 ? one : many}`).join(', ');
 function openImport() {
-  openDialog('Add case from AI', `<div class="guide-list import-steps">
+  openDialog('Add case from AI', `<div class="privacy-note ti-switch">No ChatGPT? <button class="btn small" type="button" data-table-import>Import a spreadsheet or bank statement instead</button></div><div class="guide-list import-steps">
       <div class="guide-step"><span>1</span><div><b>Copy the instructions for ChatGPT</b><p>Paste them into your work ChatGPT, then paste all your case notes underneath and send.</p><button class="btn primary import-copy" type="button" data-copy-master>Copy instructions</button></div></div>
       <div class="guide-step"><span>2</span><div><b>Paste ChatGPT's whole answer below</b><p>Use ChatGPT's copy button, then paste. Headings, tables and extra words are fine; the app picks out what it needs.</p></div></div>
     </div>
@@ -2966,6 +2973,266 @@ function openImport() {
     if (p.skipped.length) box.innerHTML += `<details class="batch-guide import-skipped"><summary>${p.skipped.length} line${p.skipped.length === 1 ? '' : 's'} will be left out. Tap to see why.</summary><div class="guide-body">${p.skipped.slice(0, 40).map(s => `<div class="aml-rule"><b>Line ${s.line}</b><span>${esc(s.why)}<br><span class="mono" style="font-size:10.5px;color:var(--muted)">${esc(clip(s.text, 140))}</span></span></div>`).join('')}${p.skipped.length > 40 ? `<p class="hint">…and ${p.skipped.length - 40} more.</p>` : ''}<p class="hint">You can add these by hand afterwards, or ask ChatGPT to fix them and paste again. Nothing is added twice.</p></div></details>`;
   };
   $('#f-import').addEventListener('input', update);
+}
+/* =====================================================================
+   Import a spreadsheet or statement, no AI needed.
+   Paste cells copied from Excel, or open a CSV export from any system.
+   The app guesses what each column is; the person can correct it.
+   Everything is turned into the same PEOPLE / ACCOUNTS / PAYMENTS / NOTES
+   text the ChatGPT import reads, so both routes behave the same way.
+   ===================================================================== */
+function parseTable(text) {
+  const s = String(text || '').replace(/\r\n?/g, '\n');
+  const sample = s.split('\n').filter(l => l.trim()).slice(0, 12).join('\n');
+  const count = ch => sample.split(ch).length - 1;
+  const d = ['\t', ',', ';', '|'].map(c => [c, count(c)]).sort((a, b) => b[1] - a[1])[0][0];
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += c; }
+    else if (c === '"' && !cell.trim()) { q = true; cell = ''; }
+    else if (c === d) { row.push(cell.trim()); cell = ''; }
+    else if (c === '\n') { row.push(cell.trim()); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  row.push(cell.trim()); rows.push(row);
+  return rows.map(r => d === '|' ? r.filter((c, i) => !(c === '' && (i === 0 || i === r.length - 1))) : r)
+    .map(r => r.map(c => c.replace(/\*\*|__|`/g, '').trim()))
+    .filter(r => r.some(Boolean) && !r.every(c => /^[\s:-]*$/.test(c)));
+}
+const looksNumberish = c => /^[-+($€£]*\s*[\d.,\s]+\)?\s*(dr|cr)?$/i.test(c);
+const looksDate = c => /^\d{1,4}[\/.-]\d{1,2}[\/.-]\d{1,4}/.test(c) || /^[a-z]{3,9}\.? \d{1,2},? \d{4}$/i.test(c) || /^\d{1,2} [a-z]{3,9}\.? \d{4}$/i.test(c);
+const headerish = r => r.filter(Boolean).length >= 2 && !r.some(c => looksDate(c) || (looksNumberish(c) && c.length > 1) || c.length > 40);
+function tableHeader(rows) {
+  for (let i = 0; i < Math.min(15, rows.length - 1); i++) if (rows[i].length >= 2 && headerish(rows[i]) && !headerish(rows[i + 1]) && rows[i + 1].length >= rows[i].length - 1) return i;
+  return headerish(rows[0] || []) ? 0 : -1;
+}
+const TI_KINDS = {
+  statement: { label: 'Statement for one account', fields: [
+    ['date', 'Date', ['transaction date', 'posting date', 'posted', 'value date', 'date']],
+    ['debit', 'Money out', ['withdrawal', 'withdrawals', 'debit', 'money out', 'paid out', 'out']],
+    ['credit', 'Money in', ['deposit', 'deposits', 'credit', 'money in', 'paid in', 'in']],
+    ['amount', 'Amount (+ in, − out)', ['amount', 'value', 'cad', 'usd']],
+    ['partyAcct', 'Other side: account number', ['counterparty account', 'beneficiary account', 'payee account', 'other account', 'iban', 'to account', 'from account']],
+    ['party', 'Other side: name', ['counterparty', 'beneficiary', 'payee', 'recipient', 'remitter', 'sender', 'other party', 'name']],
+    ['desc', 'Description', ['description', 'details', 'narrative', 'memo', 'particulars', 'transaction', 'reference', 'desc']]] },
+  payments: { label: 'List of payments', fields: [
+    ['date', 'Date', ['date', 'posted', 'value date']],
+    ['fromAcct', 'From: account number', ['from account', 'sender account', 'debit account', 'source account', 'originator account']],
+    ['from', 'From: name', ['from', 'sender', 'payer', 'originator', 'remitter', 'debtor']],
+    ['toAcct', 'To: account number', ['to account', 'recipient account', 'beneficiary account', 'credit account', 'destination account']],
+    ['to', 'To: name', ['to', 'recipient', 'beneficiary', 'payee', 'creditor']],
+    ['amount', 'Amount', ['amount', 'value', 'sum', 'cad', 'usd']],
+    ['notes', 'Notes', ['notes', 'note', 'description', 'details', 'memo', 'reference', 'method']]] },
+  people: { label: 'People', fields: [
+    ['name', 'Name', ['full name', 'name', 'customer', 'client', 'party']],
+    ['role', 'Role', ['role', 'type', 'category', 'status']],
+    ['phone', 'Phone', ['phone', 'mobile', 'cell', 'telephone']],
+    ['email', 'Email', ['email', 'e-mail']],
+    ['notes', 'Notes', ['notes', 'note', 'comments', 'details', 'occupation']]] },
+  accounts: { label: 'Accounts', fields: [
+    ['holder', 'Owner', ['holder', 'owner', 'customer', 'client', 'name']],
+    ['bank', 'Bank', ['institution', 'bank', 'fi', 'provider']],
+    ['number', 'Account number', ['account number', 'account no', 'acct', 'account', 'number', 'iban', 'wallet']],
+    ['type', 'Type', ['type', 'product']],
+    ['notes', 'Notes', ['notes', 'note', 'comments', 'details']]] },
+  notes: { label: 'Notes or timeline', fields: [
+    ['date', 'Date', ['date', 'when', 'time']],
+    ['text', 'Note', ['note', 'notes', 'text', 'event', 'what', 'details', 'description', 'comment']]] }
+};
+function tiGuessKind(head) {
+  const h = head.map(normName).join(' | ');
+  if (/withdraw|deposit|debit|credit|balance|money in|money out/.test(h)) return 'statement';
+  if (/\bfrom\b|sender|payer|originator/.test(h) && /\bto\b|recipient|beneficiary|payee/.test(h)) return 'payments';
+  if (/amount|\b(cad|usd|eur|gbp)\b|cheque|check number/.test(h) && /date/.test(h)) return 'statement';
+  if (/account|iban|acct/.test(h) && /bank|institution/.test(h)) return 'accounts';
+  if (/name/.test(h) && !/amount/.test(h)) return 'people';
+  return 'notes';
+}
+function tiGuessMap(kind, head) {
+  const map = {}, used = new Set(), hs = head.map(normName);
+  TI_KINDS[kind].fields.forEach(([k, , words]) => {
+    let best = -1, score = 0;
+    hs.forEach((h, i) => { if (used.has(i) || !h) return; words.forEach((w, wi) => { const sc = h === w ? 100 - wi : new RegExp('(^| )' + w + '( |$)').test(h) ? 60 - wi : 0; if (sc > score) { score = sc; best = i; } }); });
+    if (best >= 0) { map[k] = best; used.add(best); }
+  });
+  return map;
+}
+function tiDateReader(values, order) {
+  let dayFirst = order === 'dmy';
+  if (!order) values.forEach(v => { const m = String(v).trim().match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/); if (m && +m[1] > 12) dayFirst = true; });
+  return v => {
+    const s = String(v ?? '').trim(), m = s.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})/);
+    if (!m) return parseDate(s);
+    const y = m[3].length === 2 ? '20' + m[3] : m[3], [mo, d] = dayFirst ? [m[2], m[1]] : [m[1], m[2]];
+    return parseDate(`${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`);
+  };
+}
+function tiAmount(v) {
+  const s = String(v ?? '').trim(); if (!s) return 0;
+  const neg = /^\(.*\)$/.test(s) || /^-/.test(s.replace(/[$€£\s]/g, '')) || /\bdr\b/i.test(s);
+  const n = Math.abs(parseAmount(s.replace(/[()]/g, '').replace(/\b(dr|cr)\b/ig, '')));
+  return neg ? -n : n;
+}
+const titleCase = s => /[a-z]/.test(s) ? s : s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\b(Inc|Ltd|Llc|Fze|Td|Rbc|Bmo|Cibc)\b/g, w => /Inc|Ltd|Llc/.test(w) ? w : w.toUpperCase());
+function tiParty(desc) {
+  // drop the banking words and reference numbers, keep the name
+  let s = String(desc || '').replace(/\s+/g, ' ').trim()
+    .replace(/\b(ref|reference|conf|confirmation|trace|id|txn|inv|invoice)\b\.?\s*(no\.?|#)?\s*:?\s*[\w-]*\d[\w-]*/ig, ' ')
+    .replace(/[#*]*\b[A-Z]*\d[\dA-Z-]{3,}\b/gi, ' ')
+    .replace(/\b(interac|e-?\s?transfers?|e-?tfr|e-?trf|etransfer|send|sent|received?|autodeposit|auto-deposit|request|wire|swift|eft|ach|pos|purchase|online|internet|mobile|telephone|banking|transfer|tfr|trf|xfer|payment|pmt|bill|pre-?authori[sz]ed|debit|credit|deposit|dep|withdrawal|incoming|outgoing|domestic|international|payroll|misc|fee|to|from|in|out)\b/gi, ' ')
+    .replace(/\s{2,}/g, ' ').replace(/^[\s,:;/.-]+|[\s,:;/.-]+$/g, '').trim();
+  return s && /[a-z]/i.test(s) ? titleCase(s) : 'Unknown other side';
+}
+const pipeSafe = v => String(v ?? '').replace(/[|\n\r]+/g, ' / ').trim();
+const nameSafe = v => pipeSafe(v).replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim();
+const TI_ROLES = [['other', 'Not sure'], ['mule', 'Possible mule'], ['suspect', 'Suspect'], ['business', 'Business'], ['victim', 'Victim']];
+const TI_ROLE_WORD = { other: 'Other', mule: 'Mule', suspect: 'Suspect', business: 'Business', victim: 'Victim' };
+
+let tiHandlers = null;
+$('#dlg-body').addEventListener('click', e => tiHandlers?.click(e));
+$('#dlg-body').addEventListener('change', e => tiHandlers?.change(e));
+function openTableImport(prefill = '') {
+  if (dlg.open) dlg.close();
+  const ti = { rows: [], head: [], hi: -1, kind: '', map: {}, parties: new Map(), min: 0, dateOrder: '' };
+  openDialog('Import a spreadsheet or statement', `<div class="guide-list import-steps">
+      <div class="guide-step"><span>1</span><div><b>Paste the rows, or open a file</b><p>Copy the cells straight from Excel, or open a CSV file exported from any system. Include the row with the column names. For an Excel file, copy the cells or save it as CSV first.</p><button class="btn" type="button" id="ti-file-btn">Open a CSV file</button> <span class="hint" id="ti-file-name"></span></div></div>
+    </div>
+    <div class="field"><label for="f-table">Rows</label><textarea class="input mono" id="f-table" style="min-height:120px;font-size:11.5px;white-space:pre" placeholder="Paste cells from Excel or a CSV export here"></textarea></div>
+    <div id="ti-setup"></div><div id="ti-prev" aria-live="polite"></div>
+    <details class="batch-guide"><summary>Where this information came from (optional)</summary><div class="guide-body">${evidenceForm({ source: 'Imported spreadsheet', confidence: 'reported' })}</div></details>`,
+    () => {
+      const text = tiText(ti);
+      if (!text) { toast('Paste some rows first'); return false; }
+      const res = parseCaseBatch(text, true), total = importTotal(res.added);
+      toast(total ? `Added ${importSummary(res.added)}` : 'Everything here is already in this case');
+      setTimeout(() => fit(), 60);
+    }, null, 'Add to case');
+  const box = $('#f-table');
+  const load = text => { box.value = text; reparse(); };
+  const reparse = () => {
+    ti.rows = parseTable(box.value); ti.hi = tableHeader(ti.rows);
+    const width = Math.max(0, ...ti.rows.map(r => r.length));
+    ti.head = ti.hi >= 0 ? ti.rows[ti.hi].map((h, i) => h || 'Column ' + (i + 1)) : Array.from({ length: width }, (_, i) => 'Column ' + (i + 1));
+    const kind = tiGuessKind(ti.head);
+    if (!ti.kind || !ti.rows.length) ti.kind = kind;
+    ti.map = tiGuessMap(ti.kind, ti.head);
+    // no column names (TD and others export like this): read the columns from what is in them
+    if (ti.hi < 0 && ti.rows.length) {
+      const body = ti.rows.slice(0, 30), share = (i, test) => body.filter(r => r[i] && test(r[i])).length / body.length;
+      const dateCol = ti.head.findIndex((_, i) => share(i, looksDate) > .6);
+      const nums = ti.head.map((_, i) => i).filter(i => i !== dateCol && share(i, c => looksNumberish(c) && /\d/.test(c)) > .3);
+      const text = ti.head.map((_, i) => i).filter(i => i !== dateCol && !nums.includes(i) && share(i, c => /[a-z]{3}/i.test(c)) > .5);
+      if (dateCol >= 0 && nums.length) {
+        ti.kind = 'statement';
+        ti.map = { date: dateCol, desc: text[0] };
+        const signed = body.some(r => /^-|^\(/.test((r[nums[0]] || '').trim()));
+        if (nums.length >= 2 && !signed) { ti.map.debit = nums[0]; ti.map.credit = nums[1]; } else ti.map.amount = nums[0];
+      }
+    }
+    renderSetup(); renderPrev();
+  };
+  const data = () => ti.rows.slice(ti.hi + 1).filter(r => r.length > 1 || r[0]);
+  const colSel = (k, label) => `<div class="field ti-col"><label for="ti-c-${k}">${label}</label><select class="input" id="ti-c-${k}" data-col="${k}"><option value="">(none)</option>${ti.head.map((h, i) => `<option value="${i}" ${ti.map[k] === i ? 'selected' : ''}>${esc(clip(h, 32))}</option>`).join('')}</select></div>`;
+  function renderSetup() {
+    const el = $('#ti-setup');
+    if (!ti.rows.length) { el.innerHTML = ''; return; }
+    const accOpts = state.accounts.map(a => `<option value="${a.id}">${esc(clip((a.holder ? a.holder + ' · ' : '') + accLabel(a), 60))}</option>`).join('');
+    const slashDates = ti.map.date != null && data().some(r => /^\d{1,2}[\/.-]\d{1,2}[\/.-]\d{2,4}/.test(r[ti.map.date] || ''));
+    el.innerHTML = `<div class="guide-list import-steps" style="margin-top:14px">
+      <div class="guide-step"><span>2</span><div><b>What is this?</b><p>${data().length} rows found${ti.hi >= 0 ? ', with column names' : ', no column names found'}.</p>${choice('ti-kind', Object.entries(TI_KINDS).map(([k, v]) => [k, v.label]), ti.kind)}</div></div>
+      <div class="guide-step"><span>3</span><div><b>Check the columns</b><p>The app guessed these. Change any that are wrong.</p><div class="ti-cols">${TI_KINDS[ti.kind].fields.map(([k, l]) => colSel(k, l)).join('')}</div>
+      ${slashDates ? `<div class="field"><label>Dates like 03/04/2025 mean</label>${choice('ti-dates', [['', 'Work it out'], ['mdy', 'Month first (Mar 4)'], ['dmy', 'Day first (3 Apr)']], ti.dateOrder)}</div>` : ''}</div></div>
+      ${ti.kind === 'statement' ? `<div class="guide-step"><span>4</span><div><b>Whose account is this statement?</b><p>Pick one already in the case, or type the owner and account.</p>
+        <select class="input" id="ti-acc"><option value="">New account…</option>${accOpts}</select>
+        <div class="ti-cols" id="ti-newacc">${f('ti-holder', 'Owner', '', { ph: 'e.g. Jane Smith' })}${f('ti-bank', 'Bank', '', { ph: 'e.g. RBC' })}${f('ti-number', 'Account number', '', { ph: 'e.g. 003-11111 2229102' })}<div class="field"><label>Owner is</label>${choice('ti-hrole', TI_ROLES.map(([v, l]) => [v, l]), 'victim')}</div></div></div></div>` : ''}
+    </div>`;
+  }
+  function tiEntries() {
+    const m = ti.map, rows = data(), rd = tiDateReader(rows.map(r => r[m.date]), ti.dateOrder), get = (r, k) => m[k] == null ? '' : (r[m[k]] ?? '');
+    return { rows, rd, get };
+  }
+  function statementRows() {
+    const { rows, rd, get } = tiEntries();
+    // banks often split the description over two columns (the name is usually in the second)
+    const mapped = new Set(Object.values(ti.map).filter(v => v != null));
+    const extraDesc = ti.head.map((h, i) => /(^| )(description|details|memo|narrative|payee|particulars)/.test(normName(h)) && !mapped.has(i) ? i : -1).filter(i => i >= 0);
+    return rows.map(r => {
+      const signed = ti.map.amount != null && !get(r, 'debit') && !get(r, 'credit') ? tiAmount(get(r, 'amount')) : Math.abs(tiAmount(get(r, 'credit'))) - Math.abs(tiAmount(get(r, 'debit')));
+      const desc = [get(r, 'desc'), ...extraDesc.map(i => r[i] || '')].filter(Boolean).join(' '), name = get(r, 'party') ? titleCase(nameSafe(get(r, 'party'))) : tiParty(desc);
+      const inDesc = (desc.match(/\b\d{3,5}[- ]\d{4,6}[- ]?\d{0,9}\b|\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b|\b(bc1|0x)[a-z0-9]{20,}\b/i) || [])[0] || '';
+      return { date: rd(get(r, 'date')), amount: Math.abs(signed), out: signed < 0, name, acct: pipeSafe(get(r, 'partyAcct') || inDesc), desc: pipeSafe(desc) };
+    }).filter(x => x.amount && x.amount >= ti.min);
+  }
+  function renderPrev() {
+    const el = $('#ti-prev');
+    if (!ti.rows.length) { el.innerHTML = ''; return; }
+    if (ti.kind === 'statement') {
+      const list = statementRows(), groups = new Map();
+      list.forEach(x => { const k = normName(x.name) || 'unknown'; if (!groups.has(k)) groups.set(k, { key: k, name: x.name, n: 0, inn: 0, out: 0 }); const g = groups.get(k); g.n++; g[x.out ? 'out' : 'inn'] += x.amount; });
+      groups.forEach((g, k) => { if (!ti.parties.has(k)) ti.parties.set(k, { name: g.name, on: true, role: 'other' }); });
+      const gs = [...groups.values()].sort((a, b) => (b.inn + b.out) - (a.inn + a.out));
+      const kept = gs.filter(g => ti.parties.get(g.key).on);
+      el.innerHTML = `<div class="guide-step" style="margin-top:8px"><span>5</span><div><b>Who was on the other side?</b><p>${list.length} payments with ${gs.length} different people or companies. Fix a name if needed, untick everyday spending, and say who each one is.</p>
+        <div class="field" style="margin-top:6px"><label for="ti-min">Leave out payments under</label><input class="input" id="ti-min" type="number" min="0" step="50" value="${ti.min || ''}" placeholder="0" style="min-height:34px;max-width:140px"></div>
+        <div class="ti-parties">${gs.map(g => { const p = ti.parties.get(g.key); return `<div class="ti-party ${p.on ? '' : 'off'}" data-key="${esc(g.key)}"><input type="checkbox" ${p.on ? 'checked' : ''} aria-label="Include ${esc(p.name)}"><input class="input ti-pname" value="${esc(p.name)}" aria-label="Name"><select class="input ti-prole" aria-label="Who is this">${TI_ROLES.map(([v, l]) => `<option value="${v}" ${v === p.role ? 'selected' : ''}>${l}</option>`).join('')}</select><small>${g.n}× ${g.out ? '<span style="color:var(--fraud)">out ' + money(g.out, true) + '</span>' : ''} ${g.inn ? '<span style="color:var(--money)">in ' + money(g.inn, true) + '</span>' : ''}</small></div>`; }).join('')}</div>
+        <p class="import-ok" style="margin-top:10px">✓ Ready: ${kept.reduce((s, g) => s + g.n, 0)} payments, ${kept.length} people or companies</p></div></div>`;
+      return;
+    }
+    const text = tiText(ti), p = text ? parseCaseBatch(text, false) : null, c = p?.counts || {};
+    const tile = (k, label) => `<div class="tile${c[k] ? '' : ' zero'}"><b>${c[k] || 0}</b><span>${label}</span></div>`;
+    el.innerHTML = p && importTotal(c) ? `<p class="import-ok" style="margin-top:12px">✓ Ready to add</p><div class="tiles import-tiles">${tile('parties', 'People')}${tile('accounts', 'Accounts')}${tile('transactions', 'Payments')}${tile('identifiers', 'Details')}${tile('notes', 'Notes')}</div>${p.skipped.length ? `<p class="hint">${p.skipped.length} row${p.skipped.length === 1 ? '' : 's'} will be left out: ${esc(p.skipped[0].why)}</p>` : ''}`
+      : `<div class="privacy-note" style="background:var(--fraud-soft);margin-top:12px">Nothing readable yet. Check the columns above, especially the ones marked with a name, amount or date.</div>`;
+  }
+  function tiText() {
+    if (!ti.rows.length) return '';
+    const { rows, rd, get } = tiEntries();
+    if (ti.kind === 'people') return 'PEOPLE\nName | Role | Phone | Email | Notes\n' + rows.map(r => [nameSafe(get(r, 'name')), pipeSafe(get(r, 'role')), pipeSafe(get(r, 'phone')), pipeSafe(get(r, 'email')), pipeSafe(get(r, 'notes'))].join(' | ')).join('\n');
+    if (ti.kind === 'accounts') return 'ACCOUNTS\nOwner | Bank | Account number | Type | Notes\n' + rows.map(r => [nameSafe(get(r, 'holder')), pipeSafe(get(r, 'bank')), pipeSafe(get(r, 'number')), pipeSafe(get(r, 'type')), pipeSafe(get(r, 'notes'))].join(' | ')).join('\n');
+    if (ti.kind === 'notes') return 'NOTES\nDate | Note\n' + rows.map(r => [rd(get(r, 'date')), pipeSafe(get(r, 'text') || r.filter(Boolean).join(' — '))].join(' | ')).join('\n');
+    const side = (name, acct) => { const n = nameSafe(name) || 'Unknown'; return acct ? `${n} (${pipeSafe(acct)})` : n; };
+    if (ti.kind === 'payments') return 'PAYMENTS\nDate | From | To | Amount | Notes\n' + rows.map(r => [rd(get(r, 'date')), side(get(r, 'from'), get(r, 'fromAcct')), side(get(r, 'to'), get(r, 'toAcct')), Math.abs(tiAmount(get(r, 'amount'))) || '', pipeSafe(get(r, 'notes'))].join(' | ')).join('\n');
+    // statement: one owner account, one line per payment in or out
+    const accId = val('ti-acc'), acc = accId && state.accounts.find(a => a.id === accId);
+    const holder = acc ? (acc.holder || 'Unknown') : nameSafe(val('ti-holder')) || 'Statement owner', bank = acc ? acc.institution : val('ti-bank'), number = acc ? acc.number : val('ti-number');
+    const own = acc ? side(holder, [acc.institution, acc.number].filter(Boolean).join(' ')) : side(holder, [bank, number].filter(Boolean).join(' '));
+    const people = [], lines = [];
+    if (!acc && !state.people.some(p => normName(p.name) === normName(holder))) people.push(`${holder} | ${TI_ROLE_WORD[choiceVal('ti-hrole') || 'victim']} | | | `);
+    const accounts = !acc ? [`${holder} | ${pipeSafe(bank)} | ${pipeSafe(number)} | | `] : [];
+    const seen = new Set();
+    statementRows().forEach(x => {
+      const p = ti.parties.get(normName(x.name) || 'unknown'); if (!p || !p.on) return;
+      const name = nameSafe(p.name) || 'Unknown';
+      if (!/^unknown/i.test(name) && !seen.has(normName(name)) && !state.people.some(q => normName(q.name) === normName(name)) && normName(name) !== normName(holder)) { seen.add(normName(name)); people.push(`${name} | ${TI_ROLE_WORD[p.role]} | | | `); }
+      const other = side(name, x.acct);
+      lines.push([x.date, x.out ? own : other, x.out ? other : own, x.amount, x.desc].join(' | '));
+    });
+    return (people.length ? 'PEOPLE\nName | Role | Phone | Email | Notes\n' + people.join('\n') + '\n\n' : '') + (accounts.length ? 'ACCOUNTS\nOwner | Bank | Account number | Type | Notes\n' + accounts.join('\n') + '\n\n' : '') + 'PAYMENTS\nDate | From | To | Amount | Notes\n' + lines.join('\n');
+  }
+  // wiring (one handler slot, so opening the dialog again never doubles them up)
+  box.addEventListener('input', () => { ti.kind = ''; ti.parties.clear(); reparse(); });
+  tiHandlers = {
+    click: e => {
+      if (!e.target.closest('#ti-file-btn')) return;
+      const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,.tsv,.txt,text/csv,text/plain';
+      inp.onchange = () => { const file = inp.files[0]; if (!file) return; const rdr = new FileReader(); rdr.onload = () => { $('#ti-file-name').textContent = file.name; ti.kind = ''; ti.parties.clear(); load(String(rdr.result)); }; rdr.readAsText(file); };
+      inp.click();
+    },
+    change: e => {
+      const t = e.target;
+      if (t.id === 'ti-kind') { ti.kind = choiceVal('ti-kind'); ti.map = tiGuessMap(ti.kind, ti.head); ti.parties.clear(); renderSetup(); renderPrev(); return; }
+      if (t.id === 'ti-dates') { ti.dateOrder = choiceVal('ti-dates'); renderPrev(); return; }
+      if (t.dataset.col) { const v = t.value; ti.map[t.dataset.col] = v === '' ? undefined : +v; ti.parties.clear(); renderPrev(); return; }
+      if (t.id === 'ti-acc') { $('#ti-newacc').hidden = !!t.value; return; }
+      if (t.id === 'ti-min') { ti.min = Math.max(0, +t.value || 0); renderPrev(); return; }
+      const row = t.closest('.ti-party'); if (!row) return;
+      const p = ti.parties.get(row.dataset.key); if (!p) return;
+      if (t.type === 'checkbox') { const sc = $('.ti-parties')?.scrollTop || 0; p.on = t.checked; renderPrev(); const l = $('.ti-parties'); if (l) l.scrollTop = sc; }
+      else if (t.classList.contains('ti-pname')) p.name = t.value.trim() || p.name;
+      else if (t.classList.contains('ti-prole')) p.role = t.value;
+    }
+  };
+  if (prefill) load(prefill);
 }
 function parseSide(s) {
   s = s.trim(); if (!s) return null;
@@ -3018,11 +3285,14 @@ function parsePaste(text, commit) {
     pending.forEach(a => Object.assign(a, evidence));
     state.accounts.push(...pending);
     const METHOD = /payment|transfer|chaps|bacs|faster|wire|sepa|swift|card|cash|cheque|check|crypto|zelle|paypal|gift/i;
+    let added = 0;
     rows.filter(r => r.ok).forEach(r => {
+      if (state.transactions.some(t => t.from === r.fromAcc.id && t.to === r.toAcc.id && Math.abs(t.amount - r.amount) < 0.005 && t.date === r.date)) return;
+      added++;
       const isMethod = METHOD.test(r.method);
       state.transactions.push({ id: uid('t'), date: r.date, from: r.fromAcc.id, to: r.toAcc.id, amount: r.amount, method: isMethod ? r.method : '', reportingType: /virtual|crypto/i.test(r.method) ? 'virtual-currency' : /international/i.test(r.method) ? 'international-eft' : /cash/i.test(r.method) ? 'cash' : 'electronic', attempted: false, thirdParty: '', reference: isMethod ? '' : r.method, notes: r.notes, ...evidence });
     });
-    return rows.filter(r => r.ok).length;
+    return added;
   }
   return { rows, pending };
 }
@@ -3059,6 +3329,16 @@ $('#btn-export').addEventListener('click', e => openMenu(e.currentTarget, `
   <button type="button" data-m="png">${IC('M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4')}<span>Map image (.png)<small>High resolution, as shown now</small></span></button>
   <button type="button" data-m="json">${IC('M12 3v12M7 10l5 5 5-5M5 21h14')}<span>Export case file (.json)<small>Full backup to reopen later</small></span></button><hr>
   <button type="button" data-m="present">${IC('M3 4h18v12H3zM12 16v4M8 20h8')}Present on screen</button>`));
+// drop a CSV or text export anywhere on the page to import it
+document.addEventListener('dragover', e => { if ([...(e.dataTransfer?.items || [])].some(i => i.kind === 'file')) e.preventDefault(); });
+document.addEventListener('drop', e => {
+  const file = e.dataTransfer?.files?.[0]; if (!file) return; e.preventDefault();
+  const rdr = new FileReader();
+  if (/\.json$/i.test(file.name)) rdr.onload = () => { try { addCase(sanitize(JSON.parse(rdr.result)), 'Opened ' + file.name); } catch (_) { toast('That file is not a case file'); } };
+  else if (/\.(csv|tsv|txt)$/i.test(file.name)) rdr.onload = () => openTableImport(String(rdr.result));
+  else { toast('Drop a CSV file. For Excel, save it as CSV or copy the cells and paste them.'); return; }
+  rdr.readAsText(file);
+});
 $('#btn-demo').addEventListener('click', () => openDemo('lantern'));
 $('#btn-demo2').addEventListener('click', () => openDemo('tidewater'));
 $('#map-empty').addEventListener('pointerdown', e => e.stopPropagation());

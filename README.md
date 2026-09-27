@@ -7,7 +7,8 @@ A fraud and money-laundering case map that runs in one web page.
 - Every person and account is a card with a coloured label (victim, alleged fraudster, possible mule, business).
 - The map reads left to right: who contacted the victim, the victim, their accounts, each step the money took, and where it ended up.
 - Press play to replay the case over time. Tap a card to trace everything linked to it.
-- Paste case notes into ChatGPT with the in-app instructions, then paste its answer back to build the map.
+- Add data without AI: paste cells from Excel, or open or drop a CSV export (bank statements, payment lists, people, accounts, notes). The app works out the columns and pulls names out of statement descriptions.
+- Or paste case notes into ChatGPT with the in-app instructions, then paste its answer back.
 
 ## Your data stays on your device
 
