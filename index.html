@@ -589,7 +589,7 @@ textarea.input{min-height:76px;resize:vertical;line-height:1.5}
     <button class="panel-toggle left-toggle" id="toggle-left" type="button" aria-controls="rail-left" aria-expanded="true" title="Hide left panel">Hide case data</button>
     <button class="panel-toggle right-toggle" id="toggle-right" type="button" aria-controls="rail-right" aria-expanded="true" title="Hide right panel">Hide dossier</button>
     <div class="stage" id="stage">
-      <div class="map-empty" id="map-empty" hidden><b>This case is empty</b><span>Add people and payments, paste ChatGPT's answer with <b>Import data</b>, or look around the demo case first.</span><button class="btn primary" type="button" id="btn-demo">Open the demo case</button></div>
+      <div class="map-empty" id="map-empty" hidden><b>This case is empty</b><span>Add people and payments, paste ChatGPT's answer with <b>Import data</b>, or look around a demo case first.</span><button class="btn primary" type="button" id="btn-demo">Demo: Operation Lantern</button><button class="btn" type="button" id="btn-demo2">Demo: Operation Tidewater</button></div>
       <svg id="map" xmlns="http://www.w3.org/2000/svg"><g id="cam"><g id="lay-cols"></g><g id="lay-edges"></g><g id="lay-pts"></g><g id="lay-nodes"></g><g id="lay-labels"></g></g></svg>
     </div>
     <div class="float f-tl">
@@ -761,7 +761,7 @@ function demoCase() {
   let n = 0;
   const T = (date, from, to, amount, method, notes = '') => ({ id: 'dt' + (++n), date, from, to, amount, method, reportingType: /crypto|bitcoin/i.test(method) ? 'virtual-currency' : /international/i.test(method) ? 'international-eft' : 'electronic', attempted: false, thirdParty: '', reference: '', notes, source: src, confidence: 'confirmed' });
   return sanitize({
-    meta: { title: 'Operation Lantern', ref: 'DEMO-2026-0412', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-10-02', utrReference: 'UTR-DEMO-0412', strStatus: 'filed', strFiledDate: '2025-11-14', strReference: 'STR-DEMO-7781', strRationale: 'One victim sent money to many newly opened personal and business accounts over two and a half years. The funds were moved on within days, changed into crypto and wired overseas.', cafcReference: 'CAFC-DEMO-55120', lawEnforcementReference: '' },
+    meta: { title: 'Operation Lantern', ref: 'DEMO-2026-0412', demoKey: 'lantern', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-10-02', utrReference: 'UTR-DEMO-0412', strStatus: 'filed', strFiledDate: '2025-11-14', strReference: 'STR-DEMO-7781', strRationale: 'One victim sent money to many newly opened personal and business accounts over two and a half years. The funds were moved on within days, changed into crypto and wired overseas.', cafcReference: 'CAFC-DEMO-55120', lawEnforcementReference: '' },
     people: [
       P('v1', 'victim', 'Eleanor Whitfield', 'Retired nurse, 67', { phone: '+1 905-555-0144', notes: 'Met "Daniel" on Facebook in May 2023. Later persuaded to invest through "Crestline Digital", then targeted again by a fake recovery agent.', confidence: 'confirmed' }),
       P('s1', 'suspect', 'Daniel Reyes', 'Claims to be an offshore engineer', { aliases: 'Dan, Capt. D. Reyes', phone: '+1 437-555-0199', email: 'dan.reyes.offshore@example.com', notes: 'Befriended Eleanor Whitfield on Facebook and messaged her daily. Never met in person. Identity not verified.', identifiers: [{ type: 'ip', value: '185.220.101.47', source: src }] }),
@@ -844,6 +844,90 @@ function demoCase() {
     pos: {}
   });
 }
+/* ---------- second demo: four unrelated victims, one mule network, 2024 to 2026 (all made up) ---------- */
+function demoCase2() {
+  const src = 'Demo data (made up)';
+  const P = (id, role, name, occupation, extra = {}) => ({ id, role, name, occupation, aliases: '', phone: '', email: '', province: 'BC', pepStatus: 'none', sourceOfWealth: '', notes: '', source: src, confidence: 'reported', identifiers: [], ...extra });
+  const AC = (id, holder, institution, number, type, extra = {}) => ({ id, holder, institution, number, type, country: 'CA', riskRating: 'unknown', expectedActivity: '', sourceOfFunds: '', notes: '', status: 'unknown', frozenAmount: 0, source: src, confidence: 'reported', identifiers: [], ...extra });
+  let n = 0;
+  const T = (date, from, to, amount, method, notes = '') => ({ id: 'wt' + (++n), date, from, to, amount, method, reportingType: /crypto|ether/i.test(method) ? 'virtual-currency' : /international/i.test(method) ? 'international-eft' : 'electronic', attempted: false, thirdParty: '', reference: '', notes, source: src, confidence: 'confirmed' });
+  const office = '1200 Marine Dr, Suite 310, North Vancouver BC V7P 1T2';
+  return sanitize({
+    meta: { title: 'Operation Tidewater', ref: 'DEMO-2026-0907', demoKey: 'tidewater', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'intercepted-email', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-07-22', utrReference: 'UTR-DEMO-0907', strStatus: 'filed', strFiledDate: '2025-08-19', strReference: 'STR-DEMO-3316', strRationale: 'Four unrelated victims of four different scams paid into the same small group of accounts. Those accounts share an office address and a login IP, and move money on within one or two days to crypto and to Hong Kong.', cafcReference: 'CAFC-DEMO-80244', lawEnforcementReference: 'NVRCMP-DEMO-25-1187' },
+    people: [
+      P('w1', 'victim', 'Northbay Dental Clinic', 'Dental practice, 14 staff', { email: 'accounts@northbaydental.example', notes: 'Paid three supplier invoices after an email said the supplier had changed banks. The real supplier never received them.', confidence: 'confirmed' }),
+      P('w2', 'victim', 'Priya Raman', 'Nursing student, 22', { notes: 'Paid a deposit for a basement suite advertised online. The "landlord" texted from +1 604-555-0177 and never handed over keys.', confidence: 'confirmed' }),
+      P('w3', 'victim', 'Harold Mercer', 'Retired machinist, 81', { notes: 'Phoned by someone claiming his grandson was in jail after a crash. Told to pay "bail" and a "court fee". The caller used +1 604-555-0177.', confidence: 'confirmed' }),
+      P('w4', 'victim', 'Caleb Nguyen', 'Electrician, 34', { province: 'QC', notes: 'Paid a deposit for a pickup truck listed by AutoLink Imports. The truck did not exist.', confidence: 'confirmed' }),
+      P('x1', 'suspect', 'Ryan Castell', 'Signs the fake invoices', { aliases: 'R. Castell, "Landlord Ryan"', phone: '+1 604-555-0177', email: 'r.castell@dentrlx-supply.example', notes: 'Email address copies the real supplier name with one letter changed (dentrlx instead of dentrix).' }),
+      P('x2', 'subject', 'Grant Whitaker', 'Director of DSX Supply and AutoLink', { notes: 'Sole director of both companies. Both registered at the same office.', identifiers: [{ type: 'address', value: office, source: src }] }),
+      P('y1', 'business', 'DSX Supply Solutions Inc.', 'Incorporated two weeks before the first invoice', { identifiers: [{ type: 'address', value: office, source: src }, { type: 'website', value: 'dentrlx-supply.example', source: src }] }),
+      P('y2', 'business', 'AutoLink Imports Ltd.', 'Online car dealer, no showroom', { identifiers: [{ type: 'address', value: office, source: src }] }),
+      P('y3', 'business', 'Lucky Harbour Trading Ltd.', 'Trading company, Hong Kong', { province: '', notes: 'Overseas receiver of the large wires. Invoices describe "dental equipment".' }),
+      P('z1', 'mule', 'Jordan Pike', 'Warehouse worker, 24', { notes: 'Said a friend paid him $300 a week to "receive rent payments".', identifiers: [{ type: 'ip', value: '24.84.19.203', source: src }] }),
+      P('z2', 'mule', 'Sofia Lindqvist', 'Recent arrival, 21', { notes: 'Opened her Wise account one week before the first payment. Possible money mule.', identifiers: [{ type: 'ip', value: '24.84.19.203', source: src }] })
+    ],
+    accounts: [
+      AC('c1', 'Northbay Dental Clinic', 'RBC Business', '003-40291 1180734', 'business', { riskRating: 'low', confidence: 'confirmed' }),
+      AC('c2', 'Priya Raman', 'Tangerine', '614-50122 7730418', 'bank', { riskRating: 'low', confidence: 'confirmed' }),
+      AC('c3', 'Harold Mercer', 'BMO', '001-22870 4418602', 'bank', { riskRating: 'low', confidence: 'confirmed' }),
+      AC('c4', 'Caleb Nguyen', 'Desjardins', '815-30355 0092761', 'bank', { country: 'CA', riskRating: 'low', confidence: 'confirmed' }),
+      AC('d1', 'DSX Supply Solutions Inc.', 'Scotiabank Business', '002-71190 5520913', 'business', { riskRating: 'high', expectedActivity: 'Dental supply sales' }),
+      AC('d2', 'AutoLink Imports Ltd.', 'RBC Business', '003-66014 3307725', 'business', { riskRating: 'high', status: 'freeze-requested', freezeRequested: '2026-01-14' }),
+      AC('d3', 'Jordan Pike', 'TD', '004-38802 6614350', 'bank', { riskRating: 'high', status: 'frozen', frozenDate: '2026-01-12', frozenAmount: 1200 }),
+      AC('d4', 'Sofia Lindqvist', 'Wise', 'WISE-CA-4471902836', 'payment', { riskRating: 'high', status: 'closed' }),
+      AC('d5', 'Grant Whitaker', 'CIBC', '010-55120 9934011', 'bank', { riskRating: 'high' }),
+      AC('d6', 'Lucky Harbour Trading Ltd.', 'HSBC Hong Kong', 'HK-004-512-338271-838', 'business', { country: 'HK', riskRating: 'high' }),
+      AC('d7', '', 'Ethereum wallet', '0x8f3a91c27be4d05a6c11e9f2b7d4a0c93e51f6b2', 'crypto', { notes: 'Holder unknown. Receives from Sofia Lindqvist and Grant Whitaker.' })
+    ],
+    transactions: [
+      // Fake supplier invoices to the dental clinic
+      T('2024-10-08', 'c1', 'd1', 48200, 'Domestic wire', 'Invoice DX-10492, paid to the "new" bank details'),
+      T('2024-10-09', 'd1', 'd2', 20000, 'Electronic funds transfer', '"Vehicle purchase"'),
+      T('2024-10-10', 'd1', 'd4', 25000, 'Electronic funds transfer'),
+      T('2024-10-14', 'd4', 'd7', 24600, 'Crypto purchase (Ether)'),
+      T('2024-12-03', 'c1', 'd1', 61750, 'Domestic wire', 'Invoice DX-10588'),
+      T('2024-12-04', 'd1', 'd6', 58000, 'International wire', '"Dental equipment" invoice LH-7713'),
+      T('2025-02-11', 'c1', 'd1', 39900, 'Domestic wire', 'Invoice DX-10651'),
+      T('2025-02-12', 'd1', 'd5', 15000, 'Electronic funds transfer', 'Director loan'),
+      T('2025-02-13', 'd1', 'd4', 22000, 'Electronic funds transfer'),
+      T('2025-02-14', 'd4', 'd7', 21500, 'Crypto purchase (Ether)'),
+      // Rental deposit scam
+      T('2025-04-20', 'c2', 'd3', 3200, 'Interac e-Transfer', 'First month\'s rent'),
+      T('2025-04-22', 'c2', 'd3', 3200, 'Interac e-Transfer', 'Damage deposit'),
+      T('2025-04-23', 'd3', 'd5', 6000, 'Interac e-Transfer'),
+      // Grandparent scam
+      T('2025-07-15', 'c3', 'd3', 9500, 'Interac e-Transfer', '"Bail" for his grandson'),
+      T('2025-07-16', 'c3', 'd3', 7800, 'Interac e-Transfer', '"Court fee"'),
+      T('2025-07-17', 'd3', 'd4', 16500, 'Electronic funds transfer'),
+      T('2025-07-18', 'd4', 'd7', 16200, 'Crypto purchase (Ether)'),
+      // Car deposit scam
+      T('2025-10-02', 'c4', 'd2', 14500, 'Domestic wire', 'Deposit on a 2021 pickup truck'),
+      T('2025-10-06', 'd2', 'd6', 32000, 'International wire', '"Vehicle parts" invoice LH-8020'),
+      T('2025-10-20', 'd5', 'd7', 18000, 'Crypto purchase (Ether)'),
+      T('2025-11-03', 'd2', 'd1', 2000, 'Electronic funds transfer', 'Transfer between the two companies')
+    ],
+    notes: [
+      { id: 'wn1', date: '2024-09-24', text: 'DSX Supply Solutions Inc. is incorporated at 1200 Marine Dr, Suite 310. Grant Whitaker is the only director.', source: src, confidence: 'confirmed' },
+      { id: 'wn2', date: '2024-10-01', text: 'Northbay Dental Clinic receives an email from r.castell@dentrlx-supply.example saying the supplier has a new bank.', source: src, confidence: 'confirmed' },
+      { id: 'wn3', date: '2025-03-04', text: 'The real supplier chases Northbay Dental Clinic for three unpaid invoices. The clinic reports the fraud. Scotiabank recalls what is left.', source: src, confidence: 'confirmed' },
+      { id: 'wn4', date: '2025-07-14', text: 'Harold Mercer gets the "grandson in jail" call from +1 604-555-0177, the same number Priya Raman\'s landlord used.', source: src, confidence: 'confirmed' },
+      { id: 'wn5', date: '2025-10-30', text: 'Caleb Nguyen\'s truck never arrives. AutoLink Imports stops answering.', source: src, confidence: 'reported' },
+      { id: 'wn6', date: '2026-01-12', text: 'TD freezes the account ending 4350 held by Jordan Pike. RBC asked to freeze AutoLink (ending 7725).', source: src, confidence: 'confirmed' }
+    ],
+    questions: [
+      { id: 'wq1', text: 'Who logs in from IP 24.84.19.203? It is used by both Jordan Pike and Sofia Lindqvist.', status: 'open', answer: '', source: '', confidence: 'reported' },
+      { id: 'wq2', text: 'Does Grant Whitaker control the Ethereum wallet 0x8f3a91c27be4d05a6c11e9f2b7d4a0c93e51f6b2?', status: 'open', answer: '', source: '', confidence: 'reported' }
+    ],
+    recoveries: [
+      { id: 'wr1', date: '2025-03-06', fromAccount: 'd1', toVictim: 'w1', amount: 9850, kind: 'recalled', reference: 'SCO-RCL-2231', source: src },
+      { id: 'wr2', date: '2026-02-05', fromAccount: 'd3', toVictim: 'w3', amount: 1200, kind: 'returned', reference: 'TD-RET-0417', source: src }
+    ],
+    pos: {}
+  });
+}
+const DEMOS = { lantern: { make: demoCase, name: 'Romance to investment scam' }, tidewater: { make: demoCase2, name: 'Four victims, one mule network' } };
+const demoKeyOf = c => c?.meta?.exampleVersion >= 5 ? (c.meta.demoKey || 'lantern') : null;
 let toastT;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2200); }
 /* =====================================================================
@@ -875,7 +959,7 @@ function save() {
   catch (_) { $('#saved').innerHTML = '<i style="background:var(--fraud);box-shadow:none"></i>Not saved: storage blocked'; }
   clearTimeout(savedT); $('#saved').style.color = 'var(--text-2)'; savedT = setTimeout(() => $('#saved').style.color = '', 900);
 }
-function openDemo() { const hit = Object.entries(lib.cases).find(([, c]) => c.meta.exampleVersion >= 5); if (hit) { lib.cases[hit[0]] = demoCase(); switchCase(hit[0]); toast('Demo case opened fresh. Press play to watch it unfold.'); } else addCase(demoCase(), 'Demo case added. Press play to watch it unfold.'); }
+function openDemo(key = 'lantern') { const d = DEMOS[key] || DEMOS.lantern, hit = Object.entries(lib.cases).find(([, c]) => demoKeyOf(c) === key); if (hit) { lib.cases[hit[0]] = d.make(); switchCase(hit[0]); toast('Demo opened fresh. Press play to watch it unfold.'); } else addCase(d.make(), 'Demo added. Press play to watch it unfold.'); }
 function switchCase(id) { lib.current = id; state = lib.cases[id]; resetView(); save(); renderAll(); }
 function addCase(c, msg) { const id = uid('c'); lib.cases[id] = c; switchCase(id); if (msg) toast(msg); }
 
@@ -2956,7 +3040,7 @@ const IC = p => `<svg class="i" viewBox="0 0 24 24"><path d="${p}"/></svg>`;
 $('#case-switch').addEventListener('click', e => {
   const cases = Object.entries(lib.cases).sort((a, b) => (b[1].meta.updated || 0) - (a[1].meta.updated || 0));
   openMenu(e.currentTarget, `<div class="mh">Cases on this device</div>${cases.map(([id, c]) => `<button type="button" data-case="${id}" class="${id === lib.current ? 'cur' : ''}"><span><b style="font-weight:600">${esc(c.meta.title || 'Untitled case')}</b><small>${esc(c.meta.ref || '')} · ${c.people.length} people · ${c.transactions.length} payments</small></span></button>`).join('')}<hr>
-    <button type="button" data-m="new">${IC('M12 5v14M5 12h14')}New case</button><button type="button" data-m="demo">${IC('M5 4l14 8-14 8z')}Open the demo case</button><button type="button" data-m="dup">${IC('M8 8h12v12H8zM4 16V4h12')}Duplicate this case</button>
+    <button type="button" data-m="new">${IC('M12 5v14M5 12h14')}New case</button><hr><div class="mh">Demo cases (made up)</div><button type="button" data-m="demo"><span><b style="font-weight:600">Operation Lantern</b><small>One victim, three scams, 2023 to 2026</small></span></button><button type="button" data-m="demo2"><span><b style="font-weight:600">Operation Tidewater</b><small>Four victims, one mule network, 2024 to 2026</small></span></button><hr><button type="button" data-m="dup">${IC('M8 8h12v12H8zM4 16V4h12')}Duplicate this case</button>
     <button type="button" data-m="import">${IC('M12 21V9M7 14l5-5 5 5M5 3h14')}Open a case file (.json)</button>
     <button type="button" data-m="settings">${IC('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 12h2M18 12h2M12 4v2M12 18v2')}Case details &amp; currency</button><hr>
     <button type="button" data-m="delete" style="color:var(--fraud)">${IC('M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13')}Delete this case</button>`);
@@ -2966,7 +3050,8 @@ $('#btn-export').addEventListener('click', e => openMenu(e.currentTarget, `
   <button type="button" data-m="png">${IC('M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4')}<span>Map image (.png)<small>High resolution, as shown now</small></span></button>
   <button type="button" data-m="json">${IC('M12 3v12M7 10l5 5 5-5M5 21h14')}<span>Export case file (.json)<small>Full backup to reopen later</small></span></button><hr>
   <button type="button" data-m="present">${IC('M3 4h18v12H3zM12 16v4M8 20h8')}Present on screen</button>`));
-$('#btn-demo').addEventListener('click', openDemo);
+$('#btn-demo').addEventListener('click', () => openDemo('lantern'));
+$('#btn-demo2').addEventListener('click', () => openDemo('tidewater'));
 $('#map-empty').addEventListener('pointerdown', e => e.stopPropagation());
 let armed = null;
 menu.addEventListener('click', e => {
@@ -2981,7 +3066,7 @@ menu.addEventListener('click', e => {
     switchCase(Object.keys(lib.cases)[0]); toast('Case deleted'); return;
   }
   closeMenus();
-  ({ new: () => addCase(emptyCase(), 'New case created'), demo: openDemo, dup: () => { const c = sanitize(JSON.parse(JSON.stringify(state))); c.meta.title = (c.meta.title || 'Case') + ' (copy)'; addCase(c, 'Case duplicated'); },
+  ({ new: () => addCase(emptyCase(), 'New case created'), demo: () => openDemo('lantern'), demo2: () => openDemo('tidewater'), dup: () => { const c = sanitize(JSON.parse(JSON.stringify(state))); c.meta.title = (c.meta.title || 'Case') + ' (copy)'; addCase(c, 'Case duplicated'); },
      import: () => $('#file-in').click(), settings: editSettings,
      pptx: exportPPTX, png: exportPNG, json: exportJSON, present: openPresenter })[m]?.();
 });

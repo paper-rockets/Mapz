@@ -13,4 +13,4 @@ A fraud and money-laundering case map that runs in one web page.
 
 Cases are saved only in the browser you use. Nothing is uploaded. The page contains no case data except a made-up demo case.
 
-To see the demo, tap the case name at the top, then **Open the demo case**, then press play.
+Two made-up demo cases are built in: tap the case name at the top and pick **Operation Lantern** (one victim, three scams) or **Operation Tidewater** (four victims, one mule network), then press play.
