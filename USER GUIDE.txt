@@ -30,6 +30,19 @@ the ones it left out, with the reason. Pasting again never adds anything twice.
 You can also add or edit individual people, accounts and payments using
 the tabs on the left.
 
+2b. NO CHATGPT? USE A SPREADSHEET OR STATEMENT
+Click "Import data", then "Import a spreadsheet or bank statement instead".
+Paste cells from Excel, or open (or drag in) a CSV export.
+Check the columns, untick everyday spending, say who each person is.
+"Try a sample CIBC statement" shows how it works on the Tidewater demo.
+
+2c. RED FLAGS: WHY WE SUSPECT THEM
+Edit any person, business or account and open "Why we suspect them".
+Tick the signs that apply or write your own. Cards show a red flag count.
+For the whole case: case name menu > "What kind of scam, and why".
+Tip: add a WHOIS detail (domain; created date) and the app works out how
+new the website was when the scammer first appeared.
+
 3. EXPLORE THE CASE
 Click a person, account, payment or finding to see more detail.
 Drag the map to move around.

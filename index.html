@@ -390,6 +390,15 @@ svg.i{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stro
 /* ---------- overlays ---------- */
 dialog{border:1px solid var(--line-2);border-radius:16px;padding:0;background:var(--panel);color:var(--text);box-shadow:var(--shadow-lg);width:min(540px,calc(100vw - 32px));max-height:calc(100% - 32px)}
 dialog:has(#f-import),dialog:has(#f-table){width:min(760px,calc(100vw - 32px))}
+.flag-picks,.flag-types{display:grid;gap:5px;margin-top:4px}.flag-types{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:12px}
+.flag-pick{display:flex;gap:9px;align-items:flex-start;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg-2);font-size:12.5px;line-height:1.35;cursor:pointer}
+.flag-pick input{margin:1px 0 0;width:16px;height:16px;flex:none;accent-color:var(--fraud)}.flag-pick:has(input:checked){border-color:color-mix(in srgb,var(--fraud) 55%,var(--line));background:var(--fraud-soft)}
+.flag-list{margin:6px 0 4px;padding:0;list-style:none;display:grid;gap:5px}.flag-list li{position:relative;padding:6px 9px 6px 26px;border-radius:8px;background:var(--fraud-soft);font-size:12.5px;line-height:1.4;color:var(--text)}
+.flag-list li::before{content:"⚑";position:absolute;left:9px;top:6px;color:var(--fraud);font-size:11px}.flag-list li small{display:block;color:var(--muted);font-size:10.5px;margin-top:1px}
+.why-card{margin:12px 0 4px;padding:12px;border:1px solid color-mix(in srgb,var(--fraud) 40%,var(--line));border-radius:12px;background:var(--panel)}
+.why-head{display:flex;align-items:center;gap:8px}.why-head b{flex:1;font:400 17px/1.25 var(--serif)}
+.why-types{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0 2px}.why-types span{padding:3px 9px;border-radius:20px;background:var(--fraud-soft);color:var(--fraud);font:700 10px var(--sans);letter-spacing:.06em;text-transform:uppercase}
+.why-add{width:100%;margin:12px 0 4px;border-style:dashed}
 .ti-switch{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:4px 0 12px}
 .ti-cols{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:0 10px}.ti-cols .field{margin-top:8px}.ti-cols select.input{min-height:34px;padding:5px 8px}
 .ti-parties{display:grid;gap:6px;margin-top:10px;max-height:320px;overflow:auto;padding-right:4px}
@@ -743,6 +752,9 @@ function sanitize(c) {
   base.pos = Object.fromEntries(Object.entries(base.pos).filter(([, v]) => v && fin(v.x) && fin(v.y)));
   base.people.forEach(p => { p.name = String(p.name ?? '').trim() || 'Unnamed person'; if (!ROLE[p.role]) p.role = 'other'; ['aliases', 'phone', 'email', 'notes', 'province', 'occupation', 'sourceOfWealth'].forEach(k => p[k] = p[k] == null ? '' : String(p[k])); p.pepStatus = ['none','domestic-pep','foreign-pep','hio','family-associate','unknown'].includes(p.pepStatus) ? p.pepStatus : 'unknown'; });
   base.accounts.forEach(a => { if (!ACC_TYPE[a.type]) a.type = 'bank'; ['holder', 'institution', 'number', 'notes', 'country', 'expectedActivity', 'sourceOfFunds'].forEach(k => a[k] = a[k] == null ? '' : String(a[k])); a.riskRating = ['low','medium','high','unknown'].includes(a.riskRating) ? a.riskRating : 'unknown'; });
+  for (const r of [...base.people, ...base.accounts]) r.flags = Array.isArray(r.flags) ? [...new Set(r.flags.map(x => String(x ?? '').trim()).filter(Boolean))] : [];
+  base.meta.scamTypes = Array.isArray(base.meta.scamTypes) ? base.meta.scamTypes.filter(k => ['romance','investment','recovery','bec','emergency','rental','purchase','other'].includes(k)) : [];
+  base.meta.scamReasons = Array.isArray(base.meta.scamReasons) ? base.meta.scamReasons.map(x => String(x ?? '').trim()).filter(Boolean) : [];
   for (const r of [...base.people, ...base.accounts]) r.identifiers = Array.isArray(r.identifiers) ? r.identifiers.filter(i => i && typeof i === 'object').map(i => ({ type: ['address','ip','device','company','website','whois','handle','vehicle','debit-card','credit-card'].includes(i.type) ? i.type : 'other', value: String(i.value ?? '').trim(), source: String(i.source ?? '').trim() })).filter(i => i.type !== 'other' && i.value) : [];
   base.accounts.forEach(a => { a.status = ['unknown','open','freeze-requested','frozen','closed'].includes(a.status) ? a.status : 'unknown'; a.freezeRequested = parseDate(a.freezeRequested) || ''; a.frozenDate = parseDate(a.frozenDate) || ''; a.frozenAmount = Math.max(0, parseAmount(a.frozenAmount)); a.bankRef = String(a.bankRef ?? ''); a.bankContact = String(a.bankContact ?? ''); a.pinFailedAttempts = Math.max(0, Math.floor(Number(a.pinFailedAttempts) || 0)); a.pinSetDate = parseDate(a.pinSetDate) || ''; a.pinLastChanged = parseDate(a.pinLastChanged) || ''; });
   base.recoveries.forEach(r => { r.date = parseDate(r.date) || ''; r.fromAccount = String(r.fromAccount ?? ''); r.toVictim = String(r.toVictim ?? ''); r.amount = Math.max(0, parseAmount(r.amount)); r.kind = ['recalled','returned','reimbursed'].includes(r.kind) ? r.kind : 'returned'; r.reference = String(r.reference ?? ''); r.source = String(r.source ?? ''); });
@@ -767,18 +779,18 @@ function demoCase() {
   let n = 0;
   const T = (date, from, to, amount, method, notes = '') => ({ id: 'dt' + (++n), date, from, to, amount, method, reportingType: /crypto|bitcoin/i.test(method) ? 'virtual-currency' : /international/i.test(method) ? 'international-eft' : 'electronic', attempted: false, thirdParty: '', reference: '', notes, source: src, confidence: 'confirmed' });
   return sanitize({
-    meta: { title: 'Operation Lantern', ref: 'DEMO-2026-0412', demoKey: 'lantern', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-10-02', utrReference: 'UTR-DEMO-0412', strStatus: 'filed', strFiledDate: '2025-11-14', strReference: 'STR-DEMO-7781', strRationale: 'One victim sent money to many newly opened personal and business accounts over two and a half years. The funds were moved on within days, changed into crypto and wired overseas.', cafcReference: 'CAFC-DEMO-55120', lawEnforcementReference: '' },
+    meta: { title: 'Operation Lantern', ref: 'DEMO-2026-0412', demoKey: 'lantern', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-10-02', utrReference: 'UTR-DEMO-0412', strStatus: 'filed', strFiledDate: '2025-11-14', strReference: 'STR-DEMO-7781', scamTypes: ['romance', 'investment', 'recovery'], scamReasons: ['Contact started online (dating app or social media)', 'Never met in person; always an excuse not to video call', 'Asked for money for emergencies, travel or fees', 'Promised guaranteed or very high returns', 'Platform showed profits that could not be withdrawn', 'Asked for more money before a withdrawal (fees, taxes)', 'Contacted out of the blue with an offer to recover lost money', 'Used the same contact details as the first scam'], strRationale: 'One victim sent money to many newly opened personal and business accounts over two and a half years. The funds were moved on within days, changed into crypto and wired overseas.', cafcReference: 'CAFC-DEMO-55120', lawEnforcementReference: '' },
     people: [
       P('v1', 'victim', 'Eleanor Whitfield', 'Retired nurse, 67', { phone: '+1 905-555-0144', notes: 'Met "Daniel" on Facebook in May 2023. Later persuaded to invest through "Crestline Digital", then targeted again by a fake recovery agent.', confidence: 'confirmed' }),
-      P('s1', 'suspect', 'Daniel Reyes', 'Claims to be an offshore engineer', { aliases: 'Dan, Capt. D. Reyes', phone: '+1 437-555-0199', email: 'dan.reyes.offshore@example.com', notes: 'Befriended Eleanor Whitfield on Facebook and messaged her daily. Never met in person. Identity not verified.', identifiers: [{ type: 'ip', value: '185.220.101.47', source: src }] }),
-      P('s2', 'suspect', 'Paul Hendricks', 'Claims to be a crypto recovery officer', { aliases: 'Sgt. Hendricks', phone: '+1 437-555-0199', notes: 'Phoned Eleanor Whitfield in March 2025 offering to recover her lost investment for a fee.' }),
-      P('s3', 'subject', 'Marcus Vale', 'Director, Crestline Consulting', { email: 'm.vale@crestline-digital.example', notes: 'Sole director of Crestline Consulting Ltd. Receives money from the personal accounts that got the victim\'s early payments.', identifiers: [{ type: 'address', value: '88 Harbour St, Unit 1402, Toronto ON M5J 0B6', source: src }] }),
-      P('b1', 'business', 'Crestline Consulting Ltd.', 'Incorporated Nov 2023', { notes: 'Presented to the victim as the "Crestline Digital" trading platform.', identifiers: [{ type: 'website', value: 'crestline-digital.example', source: src }, { type: 'company', value: '1000482-7', source: src }] }),
-      P('b2', 'business', 'Harbourview Import Export Inc.', 'No visible trading activity', { notes: 'Used for the "tax clearance" and "release fee" payments.', identifiers: [{ type: 'address', value: '88 Harbour St, Unit 1402, Toronto ON M5J 0B6', source: src }] }),
-      P('b3', 'business', 'Golden Reef Trading FZE', 'Free-zone company, Dubai', { province: '', notes: 'Overseas receiver of the large wires. Invoices describe "electronics".' }),
-      P('m1', 'mule', 'Kevin Osei', 'Student, 20', { notes: 'Told the bank he was "helping a friend receive money". Possible money mule.', identifiers: [{ type: 'ip', value: '99.231.44.17', source: src }] }),
-      P('m2', 'mule', 'Aaliyah Brooks', 'Retail worker, 23', { notes: 'Recruited through an online "payment agent" job advert. Possible money mule.', identifiers: [{ type: 'handle', value: '@quickcash.jobs', source: src }] }),
-      P('m3', 'mule', 'Tyler Brandt', 'Unemployed, 26', { notes: 'Received the "recovery fee" payments. Possible money mule.', identifiers: [{ type: 'ip', value: '99.231.44.17', source: src }] })
+      P('s1', 'suspect', 'Daniel Reyes', 'Claims to be an offshore engineer', { flags: ['Met the victim online and never in person', 'Identity cannot be verified', 'Profile photos found elsewhere online (reverse image search)', 'Asked for money for emergencies, fees or travel', 'Moved the chat to WhatsApp or Telegram', 'Same phone, email or IP as another suspect'], aliases: 'Dan, Capt. D. Reyes', phone: '+1 437-555-0199', email: 'dan.reyes.offshore@example.com', notes: 'Befriended Eleanor Whitfield on Facebook and messaged her daily. Never met in person. Identity not verified.', identifiers: [{ type: 'ip', value: '185.220.101.47', source: src }] }),
+      P('s2', 'suspect', 'Paul Hendricks', 'Claims to be a crypto recovery officer', { flags: ['Promised big returns or to recover lost money', 'Same phone, email or IP as another suspect', 'Claimed to be a police officer'], aliases: 'Sgt. Hendricks', phone: '+1 437-555-0199', notes: 'Phoned Eleanor Whitfield in March 2025 offering to recover her lost investment for a fee.' }),
+      P('s3', 'subject', 'Marcus Vale', 'Director, Crestline Consulting', { flags: ['Director of the company that took the "investments"', 'Receives money from two possible mules', 'Turns the money into Bitcoin'], email: 'm.vale@crestline-digital.example', notes: 'Sole director of Crestline Consulting Ltd. Receives money from the personal accounts that got the victim\'s early payments.', identifiers: [{ type: 'address', value: '88 Harbour St, Unit 1402, Toronto ON M5J 0B6', source: src }] }),
+      P('b1', 'business', 'Crestline Consulting Ltd.', 'Incorporated Nov 2023', { flags: ['Incorporated shortly before the first payment', 'Website domain created shortly before contact (WHOIS)', 'Payments do not match the stated business', 'Money leaves within 1–2 days of arriving', 'Stopped responding after payment'], notes: 'Presented to the victim as the "Crestline Digital" trading platform.', identifiers: [{ type: 'website', value: 'crestline-digital.example', source: src }, { type: 'whois', value: 'crestline-digital.example; 2023-11-02', source: 'WHOIS lookup (made up)' }, { type: 'company', value: '1000482-7', source: src }] }),
+      P('b2', 'business', 'Harbourview Import Export Inc.', 'No visible trading activity', { flags: ['No website, staff or real trading activity', 'Shares an address or director with other suspect companies', 'Sends money overseas with vague invoices'], notes: 'Used for the "tax clearance" and "release fee" payments.', identifiers: [{ type: 'address', value: '88 Harbour St, Unit 1402, Toronto ON M5J 0B6', source: src }] }),
+      P('b3', 'business', 'Golden Reef Trading FZE', 'Free-zone company, Dubai', { flags: ['Invoices for "electronics" with no shipping records'], province: '', notes: 'Overseas receiver of the large wires. Invoices describe "electronics".' }),
+      P('m1', 'mule', 'Kevin Osei', 'Student, 20', { flags: ['Money passed on within 1–2 days', 'Activity does not fit their job or income', 'Same device or IP as another account holder'], notes: 'Told the bank he was "helping a friend receive money". Possible money mule.', identifiers: [{ type: 'ip', value: '99.231.44.17', source: src }] }),
+      P('m2', 'mule', 'Aaliyah Brooks', 'Retail worker, 23', { flags: ['Money passed on within 1–2 days', 'Says they were paid to receive money'], notes: 'Recruited through an online "payment agent" job advert. Possible money mule.', identifiers: [{ type: 'handle', value: '@quickcash.jobs', source: src }] }),
+      P('m3', 'mule', 'Tyler Brandt', 'Unemployed, 26', { flags: ['Money passed on within 1–2 days', 'Converts money to crypto or cash quickly', 'Same device or IP as another account holder'], notes: 'Received the "recovery fee" payments. Possible money mule.', identifiers: [{ type: 'ip', value: '99.231.44.17', source: src }] })
     ],
     accounts: [
       AC('a1', 'Eleanor Whitfield', 'RBC Chequing', '003-11842 5029917', 'bank', { riskRating: 'low', confidence: 'confirmed' }),
@@ -791,7 +803,7 @@ function demoCase() {
       AC('a8', 'Harbourview Import Export Inc.', 'CIBC Business', '010-44310 7720519', 'business', { riskRating: 'high', status: 'freeze-requested', freezeRequested: '2026-01-19' }),
       AC('a9', 'Golden Reef Trading FZE', 'Emirates NBD', 'AE07 0260 0010 1523 4567 801', 'business', { country: 'AE', riskRating: 'high' }),
       AC('a10', 'Tyler Brandt', 'Tangerine', '614-33102 4471986', 'bank', { riskRating: 'high', status: 'frozen', frozenDate: '2026-01-21', frozenAmount: 2800 }),
-      AC('a11', '', 'Bitcoin wallet', 'bc1q7xk2m9w4tq0lz3h8p5n6r2y4c8v0dgs3e7f9ja', 'crypto', { notes: 'Holder unknown. Receives from three different sources.', confidence: 'reported' })
+      AC('a11', '', 'Bitcoin wallet', 'bc1q7xk2m9w4tq0lz3h8p5n6r2y4c8v0dgs3e7f9ja', 'crypto', { flags: ['Many unrelated people paying in', 'Linked to crypto purchases'], notes: 'Holder unknown. Receives from three different sources.', confidence: 'reported' })
     ],
     transactions: [
       // 2023: the romance. Small "help" payments to two personal accounts, passed on to Marcus Vale.
@@ -859,19 +871,19 @@ function demoCase2() {
   const T = (date, from, to, amount, method, notes = '') => ({ id: 'wt' + (++n), date, from, to, amount, method, reportingType: /crypto|ether/i.test(method) ? 'virtual-currency' : /international/i.test(method) ? 'international-eft' : 'electronic', attempted: false, thirdParty: '', reference: '', notes, source: src, confidence: 'confirmed' });
   const office = '1200 Marine Dr, Suite 310, North Vancouver BC V7P 1T2';
   return sanitize({
-    meta: { title: 'Operation Tidewater', ref: 'DEMO-2026-0907', demoKey: 'tidewater', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'intercepted-email', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-07-22', utrReference: 'UTR-DEMO-0907', strStatus: 'filed', strFiledDate: '2025-08-19', strReference: 'STR-DEMO-3316', strRationale: 'Four unrelated victims of four different scams paid into the same small group of accounts. Those accounts share an office address and a login IP, and move money on within one or two days to crypto and to Hong Kong.', cafcReference: 'CAFC-DEMO-80244', lawEnforcementReference: 'NVRCMP-DEMO-25-1187' },
+    meta: { title: 'Operation Tidewater', ref: 'DEMO-2026-0907', demoKey: 'tidewater', currency: 'CAD', analyst: 'Demo', exampleVersion: 5, caseType: 'fraud-aml', typologies: ['scam', 'intercepted-email', 'mule', 'money-laundering'], jurisdiction: 'CA', reportingEntity: true, sector: 'Financial entity', utrStatus: 'raised', utrDate: '2025-07-22', utrReference: 'UTR-DEMO-0907', strStatus: 'filed', strFiledDate: '2025-08-19', strReference: 'STR-DEMO-3316', scamTypes: ['bec', 'rental', 'emergency', 'purchase'], scamReasons: ['Supplier bank details changed by email', 'Email address copies the real one with a small change', 'Real supplier never received the payments', 'Deposit asked for before any viewing', 'Caller said a relative was in trouble (jail, hospital, accident)', 'Seller stopped responding after payment', 'Four different scams, but the same phone number and the same mule accounts'], strRationale: 'Four unrelated victims of four different scams paid into the same small group of accounts. Those accounts share an office address and a login IP, and move money on within one or two days to crypto and to Hong Kong.', cafcReference: 'CAFC-DEMO-80244', lawEnforcementReference: 'NVRCMP-DEMO-25-1187' },
     people: [
       P('w1', 'victim', 'Northbay Dental Clinic', 'Dental practice, 14 staff', { email: 'accounts@northbaydental.example', notes: 'Paid three supplier invoices after an email said the supplier had changed banks. The real supplier never received them.', confidence: 'confirmed' }),
       P('w2', 'victim', 'Priya Raman', 'Nursing student, 22', { notes: 'Paid a deposit for a basement suite advertised online. The "landlord" texted from +1 604-555-0177 and never handed over keys.', confidence: 'confirmed' }),
       P('w3', 'victim', 'Harold Mercer', 'Retired machinist, 81', { notes: 'Phoned by someone claiming his grandson was in jail after a crash. Told to pay "bail" and a "court fee". The caller used +1 604-555-0177.', confidence: 'confirmed' }),
       P('w4', 'victim', 'Caleb Nguyen', 'Electrician, 34', { province: 'QC', notes: 'Paid a deposit for a pickup truck listed by AutoLink Imports. The truck did not exist.', confidence: 'confirmed' }),
-      P('x1', 'suspect', 'Ryan Castell', 'Signs the fake invoices', { aliases: 'R. Castell, "Landlord Ryan"', phone: '+1 604-555-0177', email: 'r.castell@dentrlx-supply.example', notes: 'Email address copies the real supplier name with one letter changed (dentrlx instead of dentrix).' }),
-      P('x2', 'subject', 'Grant Whitaker', 'Director of DSX Supply and AutoLink', { notes: 'Sole director of both companies. Both registered at the same office.', identifiers: [{ type: 'address', value: office, source: src }] }),
-      P('y1', 'business', 'DSX Supply Solutions Inc.', 'Incorporated two weeks before the first invoice', { identifiers: [{ type: 'address', value: office, source: src }, { type: 'website', value: 'dentrlx-supply.example', source: src }] }),
-      P('y2', 'business', 'AutoLink Imports Ltd.', 'Online car dealer, no showroom', { identifiers: [{ type: 'address', value: office, source: src }] }),
-      P('y3', 'business', 'Lucky Harbour Trading Ltd.', 'Trading company, Hong Kong', { province: '', notes: 'Overseas receiver of the large wires. Invoices describe "dental equipment".' }),
-      P('z1', 'mule', 'Jordan Pike', 'Warehouse worker, 24', { notes: 'Said a friend paid him $300 a week to "receive rent payments".', identifiers: [{ type: 'ip', value: '24.84.19.203', source: src }] }),
-      P('z2', 'mule', 'Sofia Lindqvist', 'Recent arrival, 21', { notes: 'Opened her Wise account one week before the first payment. Possible money mule.', identifiers: [{ type: 'ip', value: '24.84.19.203', source: src }] })
+      P('x1', 'suspect', 'Ryan Castell', 'Signs the fake invoices', { flags: ['Identity cannot be verified', 'Email or website domain created shortly before contact (WHOIS)', 'Same phone, email or IP as another suspect', 'Email address copies the real supplier'], aliases: 'R. Castell, "Landlord Ryan"', phone: '+1 604-555-0177', email: 'r.castell@dentrlx-supply.example', notes: 'Email address copies the real supplier name with one letter changed (dentrlx instead of dentrix).' }),
+      P('x2', 'subject', 'Grant Whitaker', 'Director of DSX Supply and AutoLink', { flags: ['Director of both companies that received victim money', 'Receives money from a possible mule', 'Turns the money into crypto'], notes: 'Sole director of both companies. Both registered at the same office.', identifiers: [{ type: 'address', value: office, source: src }] }),
+      P('y1', 'business', 'DSX Supply Solutions Inc.', 'Incorporated two weeks before the first invoice', { flags: ['Incorporated shortly before the first payment', 'Website domain created shortly before contact (WHOIS)', 'Name copies a real company (lookalike)', 'Shares an address or director with other suspect companies', 'Money leaves within 1–2 days of arriving', 'Sends money overseas with vague invoices'], identifiers: [{ type: 'address', value: office, source: src }, { type: 'website', value: 'dentrlx-supply.example', source: src }, { type: 'whois', value: 'dentrlx-supply.example; 2024-09-17', source: 'WHOIS lookup (made up)' }] }),
+      P('y2', 'business', 'AutoLink Imports Ltd.', 'Online car dealer, no showroom', { flags: ['No website, staff or real trading activity', 'Shares an address or director with other suspect companies', 'Stopped responding after payment'], identifiers: [{ type: 'address', value: office, source: src }] }),
+      P('y3', 'business', 'Lucky Harbour Trading Ltd.', 'Trading company, Hong Kong', { flags: ['Receives wires from two unrelated Canadian companies', 'Invoices describe goods neither company sells'], province: '', notes: 'Overseas receiver of the large wires. Invoices describe "dental equipment".' }),
+      P('z1', 'mule', 'Jordan Pike', 'Warehouse worker, 24', { flags: ['Receives from people they do not know', 'Money passed on within 1–2 days', 'Says they were paid to receive money', 'Same device or IP as another account holder'], notes: 'Said a friend paid him $300 a week to "receive rent payments".', identifiers: [{ type: 'ip', value: '24.84.19.203', source: src }] }),
+      P('z2', 'mule', 'Sofia Lindqvist', 'Recent arrival, 21', { flags: ['Account opened shortly before the payments', 'Money passed on within 1–2 days', 'Converts money to crypto or cash quickly', 'Same device or IP as another account holder'], notes: 'Opened her Wise account one week before the first payment. Possible money mule.', identifiers: [{ type: 'ip', value: '24.84.19.203', source: src }] })
     ],
     accounts: [
       AC('c1', 'Northbay Dental Clinic', 'RBC Business', '003-40291 1180734', 'business', { riskRating: 'low', confidence: 'confirmed' }),
@@ -884,7 +896,7 @@ function demoCase2() {
       AC('d4', 'Sofia Lindqvist', 'Wise', 'WISE-CA-4471902836', 'payment', { riskRating: 'high', status: 'closed' }),
       AC('d5', 'Grant Whitaker', 'CIBC', '010-55120 9934011', 'bank', { riskRating: 'high' }),
       AC('d6', 'Lucky Harbour Trading Ltd.', 'HSBC Hong Kong', 'HK-004-512-338271-838', 'business', { country: 'HK', riskRating: 'high' }),
-      AC('d7', '', 'Ethereum wallet', '0x8f3a91c27be4d05a6c11e9f2b7d4a0c93e51f6b2', 'crypto', { notes: 'Holder unknown. Receives from two different accounts.' })
+      AC('d7', '', 'Ethereum wallet', '0x8f3a91c27be4d05a6c11e9f2b7d4a0c93e51f6b2', 'crypto', { flags: ['Many unrelated people paying in', 'Linked to crypto purchases'], notes: 'Holder unknown. Receives from two different accounts.' })
     ],
     transactions: [
       // Fake supplier invoices to the dental clinic
@@ -1478,17 +1490,18 @@ function tagRow(tags, right, y) {
   tags.forEach(([k, t]) => { const w = t.length * 5.6 + 10; tx -= w; s += `<rect class="tagbg-${k}" x="${tx}" y="${y}" width="${w}" height="15" rx="4"/><text class="row-tag tag-${k}" x="${tx + 5}" y="${y + 10.5}">${t}</text>`; tx -= 4; });
   return s;
 }
+const fitTags = (tags, px) => { const room = Math.floor(px / 6), out = []; let used = 0; tags.forEach(t => { if (used + t[1].length + 3 <= room) { out.push(t); used += t[1].length + 3; } }); return out; };
 function personCardSVG(p, r) {
   const loss = A.lossBy.get(p.id);
   const qn = A.edges.filter(e => e.type === 'mention' && e.to === p.id).length;
   const b = badgeSVG(r.x + 14, r.y + 11, ROLE_WORD[p.role] || 'Person');
   const sub = p.occupation || (p.aliases ? 'Also known as ' + p.aliases : '') || String(p.notes || '').split(/[.\n]/)[0] || '';
-  const tags = []; if (qn) tags.push(['q', qn + ' NOTE' + (qn > 1 ? 'S' : '')]);
+  const tags = [...flagTag((p.flags || []).length)]; if (qn) tags.push(['q', qn + ' NOTE' + (qn > 1 ? 'S' : '')]);
   return `<g class="ent ent-p t-${toneOf(p.role)}" data-id="${p.id}"><title>${esc(p.name)}${p.notes ? ' · ' + esc(clip(p.notes, 160)) : ''}</title>
     <rect class="card" x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" rx="12"/><rect class="accent" x="${r.x}" y="${r.y + 12}" width="4" height="${r.h - 24}" rx="2"/>${b.s}
     <text class="c-name" x="${r.x + 16}" y="${r.y + 50}">${esc(clip(p.name, loss ? 19 : 27))}</text>
     <text class="c-sub" x="${r.x + 16}" y="${r.y + 67}">${esc(clip(sub, loss ? 26 : 38))}</text>
-    ${loss ? `<text class="c-lossl" x="${r.x + r.w - 14}" y="${r.y + 44}">LOST</text><text class="c-loss" x="${r.x + r.w - 14}" y="${r.y + 62}">${money(loss, true)}</text>` : tagRow(tags, r.x + r.w - 10, r.y + 12)}
+    ${loss ? `<text class="c-lossl" x="${r.x + r.w - 14}" y="${r.y + 44}">LOST</text><text class="c-loss" x="${r.x + r.w - 14}" y="${r.y + 62}">${money(loss, true)}</text>` : tagRow(fitTags(tags, r.w - b.w - 30), r.x + r.w - 10, r.y + 12)}
     ${recordTags(p, r.x + r.w - 12, r.y + (loss ? 20 : 38))}</g>`;
 }
 function accountCardSVG(a, r, g) {
@@ -1496,7 +1509,7 @@ function accountCardSVG(a, r, g) {
   const owner = A.personById.get(A.ownerId.get(a.id));
   const meet = A.findings.some(f => f.target === a.id);
   const qn = A.edges.filter(e => e.type === 'mention' && e.q && e.to === a.id).length;
-  const tags = []; if (a.status === 'frozen') tags.push(['hot', 'FROZEN ' + money(a.frozenAmount || 0, true)]); else if (a.status === 'freeze-requested') tags.push(['q', 'FREEZE ASKED']); else if (a.status === 'closed') tags.push(['q', 'CLOSED']); if (meet) tags.push(['hot', 'VICTIMS MEET']); if (a.confidence === 'suspected') tags.push(['q', 'SUSPECTED']); if (!a.source) tags.push(['q', 'NO SOURCE']); if (qn) tags.push(['q', '? ' + qn]);
+  const tags = [...flagTag((a.flags || []).length)]; if (a.status === 'frozen') tags.push(['hot', 'FROZEN ' + money(a.frozenAmount || 0, true)]); else if (a.status === 'freeze-requested') tags.push(['q', 'FREEZE ASKED']); else if (a.status === 'closed') tags.push(['q', 'CLOSED']); if (meet) tags.push(['hot', 'VICTIMS MEET']); if (a.confidence === 'suspected') tags.push(['q', 'SUSPECTED']); if (!a.source) tags.push(['q', 'NO SOURCE']); if (qn) tags.push(['q', '? ' + qn]);
   const b = badgeSVG(r.x + 14, r.y + 11, ACC_BADGE[a.type] || 'Account', 'acc');
   const room = Math.floor((r.w - b.w - 30) / 6), shown = []; let used = 0;
   tags.forEach(t => { if (used + t[1].length + 3 <= room) { shown.push(t); used += t[1].length + 3; } });
@@ -1513,7 +1526,7 @@ function comboCardSVG(p, a, r) {
   const inn = A.inflow.get(a.id) || 0, out = A.outflow.get(a.id) || 0;
   const meet = A.findings.some(f => f.target === a.id);
   const qn = A.edges.filter(e => e.type === 'mention' && e.to === p.id).length + A.edges.filter(e => e.type === 'mention' && e.q && e.to === a.id).length;
-  const tags = []; if (a.status === 'frozen') tags.push(['hot', 'FROZEN ' + money(a.frozenAmount || 0, true)]); else if (a.status === 'freeze-requested') tags.push(['q', 'FREEZE ASKED']); else if (a.status === 'closed') tags.push(['q', 'CLOSED']); if (meet) tags.push(['hot', 'VICTIMS MEET']); if (p.confidence === 'suspected' || a.confidence === 'suspected') tags.push(['q', 'SUSPECTED']); if (!p.source || !a.source) tags.push(['q', 'NO SOURCE']); if (qn) tags.push(['q', qn + ' NOTE' + (qn > 1 ? 'S' : '')]);
+  const tags = [...flagTag((p.flags || []).length + (a.flags || []).length)]; if (a.status === 'frozen') tags.push(['hot', 'FROZEN ' + money(a.frozenAmount || 0, true)]); else if (a.status === 'freeze-requested') tags.push(['q', 'FREEZE ASKED']); else if (a.status === 'closed') tags.push(['q', 'CLOSED']); if (meet) tags.push(['hot', 'VICTIMS MEET']); if (p.confidence === 'suspected' || a.confidence === 'suspected') tags.push(['q', 'SUSPECTED']); if (!p.source || !a.source) tags.push(['q', 'NO SOURCE']); if (qn) tags.push(['q', qn + ' NOTE' + (qn > 1 ? 'S' : '')]);
   const b = badgeSVG(r.x + 14, r.y + 11, ROLE_WORD[p.role] || 'Person');
   const room = Math.floor((r.w - b.w - 30) / 6), shown = []; let used = 0;
   tags.forEach(t => { if (used + t[1].length + 3 <= room) { shown.push(t); used += t[1].length + 3; } });
@@ -1773,12 +1786,19 @@ function recoveryFindings() {
 }
 const STR_STATUS = { 'not-assessed': 'Not assessed', assessing: 'Assessment in progress', 'threshold-met': 'Threshold met', filed: 'STR filed', 'not-filed': 'Decision: not filed' };
 function fraudFindings() {
-  const out = [], firstTx = state.transactions.map(t => t.date).filter(Boolean).sort()[0] || '', seenWhois = new Set();
+  const out = [], firstTx = state.transactions.map(t => t.date).filter(Boolean).sort()[0] || '', firstNote = state.notes.map(n => n.date).filter(Boolean).sort()[0] || '', seenWhois = new Set();
+  const startDate = [firstTx, firstNote].filter(Boolean).sort()[0] || '', startWord = firstNote && (!firstTx || firstNote < firstTx) ? 'the first recorded contact' : 'the first payment';
   state.accounts.filter(a => (a.pinFailedAttempts || 0) >= 3).forEach(a => out.push({ sev: 'med', kind: 'Fraud indicator', title: `${a.pinFailedAttempts} failed PIN attempts at ${accLabel(a)}`, text: `Multiple failed PIN attempts are recorded${a.pinLastChanged ? `; the PIN was last changed ${fmtDate(a.pinLastChanged)}` : ''}. Review authentication and device evidence before deciding whether this supports account takeover.`, nodes: [a.id], edges: [] }));
   [...state.people, ...state.accounts].forEach(r => (r.identifiers || []).filter(i => i.type === 'whois').forEach(i => {
-    const w = parseWhois(i.value), referenceDate = firstTx || new Date().toISOString().slice(0, 10); if (!w || seenWhois.has(w.domain)) return; seenWhois.add(w.domain);
+    const w = parseWhois(i.value); if (!w || seenWhois.has(w.domain)) return; seenWhois.add(w.domain);
+    // compare with the first time this party shows up: a note naming them or their domain, or the first payment to them
+    const ids = [r.id, ...state.accounts.filter(a => normName(a.holder) === normName(r.name || '')).map(a => a.id)], root = norm(w.domain.split('.')[0]);
+    const firstPay = state.transactions.filter(t => ids.includes(t.to) && t.date).map(t => t.date).sort()[0] || '';
+    const firstSeen = state.notes.filter(n => n.date && ((root.length >= 5 && norm(n.text).includes(root)) || (r.name && normName(n.text).includes(normName(r.name))))).map(n => n.date).sort()[0] || '';
+    const own = [firstSeen, firstPay].filter(Boolean).sort()[0] || '', referenceDate = own || startDate || new Date().toISOString().slice(0, 10);
+    const whenWord = own ? (firstSeen && firstSeen <= (firstPay || '9999') ? `it was first mentioned (${fmtDate(firstSeen)})` : `the first payment to it (${fmtDate(firstPay)})`) : startWord;
     const age = Math.floor(dayDiff(w.date, referenceDate)); if (age < 0 || age > 180) return;
-    out.push({ sev: age <= 90 ? 'high' : 'med', kind: 'Fraud indicator', title: firstTx ? `${w.domain} registered ${age} day${age === 1 ? '' : 's'} before the first payment` : `${w.domain} registered ${age} day${age === 1 ? '' : 's'} ago`, text: `WHOIS evidence records the domain creation date as <span class="mono">${fmtDate(w.date)}</span>. A recently created website can support a scam assessment, but does not establish fraud by itself. Source: ${esc(i.source || sourceName(r))}.`, nodes: [r.id], edges: [] });
+    out.push({ sev: age <= 90 ? 'high' : 'med', kind: 'Fraud indicator', title: (own || startDate) ? `${w.domain} registered ${age} day${age === 1 ? '' : 's'} before ${whenWord}` : `${w.domain} registered ${age} day${age === 1 ? '' : 's'} ago`, text: `WHOIS evidence records the domain creation date as <span class="mono">${fmtDate(w.date)}</span>. A recently created website can support a scam assessment, but does not establish fraud by itself. Source: ${esc(i.source || sourceName(r))}.`, nodes: [r.id], edges: [] });
   }));
   return out;
 }
@@ -1945,7 +1965,7 @@ function renderRight() {
   const body = $('#right-body');
   if (rightTab === 'findings') {
     const visible = showAllFindings ? A.findings : A.findings.slice(0, 6), remaining = A.findings.length - visible.length;
-    body.innerHTML = `<p class="lede">${caseSummary()}</p><p class="lede-sub">${A.findings.length} findings, worked out from the case data. Select one to see it on the map.</p>` +
+    body.innerHTML = `<p class="lede">${caseSummary()}</p>${whyHTML()}<p class="lede-sub">${A.findings.length} findings, worked out from the case data. Select one to see it on the map.</p>` +
       visible.map((f, i) => `<button type="button" class="finding ${f.sev} ${focusFinding === f.id ? 'on' : ''}" data-finding="${f.id}"><div class="f-head"><span class="sev">${f.sev === 'high' ? 'Key link' : f.sev === 'med' ? 'Worth checking' : 'Info'}</span><span class="f-kind">${esc(f.kind)}</span></div><div class="f-title">${esc(f.title)}</div><div class="f-text">${f.text}<small style="display:block;margin-top:6px;color:var(--muted)">Sources: ${esc(keyLinkSources(f))}</small></div></button>`).join('') +
       (remaining ? `<button class="btn" style="width:100%;margin-top:10px" type="button" data-show-findings>Show ${remaining} more findings</button>` : showAllFindings && A.findings.length > 6 ? '<button class="btn" style="width:100%;margin-top:10px" type="button" data-show-findings>Show key findings only</button>' : '');
   } else if (rightTab === 'aml') {
@@ -2017,6 +2037,7 @@ function dossierHTML() {
       <div class="tile"><b>${A.ownerId.get(r.id) ? esc(clip(personName(A.ownerId.get(r.id)), 16)) : '<span style="color:var(--question)">Unknown</span>'}</b><span>Holder</span></div><div class="tile"><b>${vs.length}</b><span>Victims traced here</span></div></div>
       ${(r.pinFailedAttempts || r.pinSetDate || r.pinLastChanged) ? `<div class="sub-h">Fraud / account access</div><dl class="kv"><dt>Failed PIN attempts</dt><dd>${r.pinFailedAttempts || 0}</dd>${r.pinSetDate ? `<dt>PIN set</dt><dd>${fmtDate(r.pinSetDate)}</dd>` : ''}${r.pinLastChanged ? `<dt>Last PIN change</dt><dd>${fmtDate(r.pinLastChanged)}</dd>` : ''}</dl><p class="hint">Access evidence only; no PIN value is stored.</p>` : ''}
       ${(r.riskRating || r.country || r.expectedActivity || r.sourceOfFunds) ? `<div class="sub-h">AML / expected activity</div><dl class="kv">${r.riskRating ? `<dt>Risk</dt><dd>${esc(r.riskRating)}</dd>` : ''}${r.country ? `<dt>Country</dt><dd>${esc(r.country)}</dd>` : ''}${r.expectedActivity ? `<dt>Expected</dt><dd>${esc(r.expectedActivity)}</dd>` : ''}${r.sourceOfFunds ? `<dt>Source of funds</dt><dd>${esc(r.sourceOfFunds)}</dd>` : ''}</dl>` : ''}
+      ${flagsHTML(r)}
       <div class="d-actions"><button class="btn small" data-edit="${r.id}" type="button">Edit account</button><button class="btn small" data-ask="${r.id}" type="button">Ask a question</button></div>
       ${vs.length ? `<div class="sub-h">Money traced from</div>${vs.map(v => `<div class="conn"><i style="--c:var(--victim)"></i><div><button type="button" data-goto="${v}">${esc(personName(v))}</button><small>${esc(A.trails.get(v).pathTo(r.id).ids.map(id => accHolderName(id)).join(' → '))}</small></div></div>`).join('')}` : ''}
        ${accountRecoveryHTML(r)}${identifiersHTML(r)}${tracedAccountHTML(r.id)}${evidenceHTML([r, ...pays])}
@@ -2045,6 +2066,7 @@ function dossierHTML() {
     ${(r.province || r.occupation || r.sourceOfWealth || (r.pepStatus && r.pepStatus !== 'none')) ? `<div class="sub-h">AML / KYC profile</div><dl class="kv">${r.province ? `<dt>Province</dt><dd>${esc(r.province)}</dd>` : ''}${r.occupation ? `<dt>Occupation</dt><dd>${esc(r.occupation)}</dd>` : ''}${r.pepStatus ? `<dt>PEP / HIO</dt><dd>${esc(r.pepStatus === 'none' ? 'None identified' : r.pepStatus.replaceAll('-', ' '))}</dd>` : ''}${r.sourceOfWealth ? `<dt>Source of wealth</dt><dd>${esc(r.sourceOfWealth)}</dd>` : ''}</dl>` : ''}
     <div class="d-actions"><button class="btn small primary" type="button" data-act="replay">Replay trail</button><button class="btn small" data-edit="${r.id}" type="button">Edit</button><button class="btn small" data-add-acc="${r.id}" type="button">+ Account</button><button class="btn small" data-ask="${r.id}" type="button">Ask a question</button></div>
     ${r.notes ? `<p style="font-size:12.5px;color:var(--text-2);margin:12px 2px 0;line-height:1.55">${esc(r.notes)}</p>` : ''}
+    ${flagsHTML(r, accs.map(a => ['Account ' + accLabel(a), a.flags || []]))}
      ${r.role === 'victim' ? victimRecoveryHTML(r.id) + tracedVictimHTML(r.id) : tracedHolderHTML(r.id)}${identifiersHTML(r)}${evidenceHTML([r, ...accs, ...S.transactions.filter(t => accIds.includes(t.from) || accIds.includes(t.to))])}
     ${accs.length ? `<div class="sub-h">Accounts</div>${accs.map(a => `<div class="conn"><i style="--c:var(--account)"></i><div><button type="button" data-goto="${a.id}">${esc(accLabel(a))}</button><small class="mono">${esc(a.number || '')}</small></div></div>`).join('')}` : ''}
     ${trail}<div class="sub-h">Links &amp; reasons</div>${linksHTML([r.id, ...accIds])}`;
@@ -2087,6 +2109,7 @@ function renderAllUnsafe() {
   A.findings.push(...fraudFindings());
   A.aml = amlSummary();
   A.findings.push(...amlFindings());
+  A.findings.push(...flagFinding());
   const coverage = evidenceCoverage();
   if (coverage.missing.length) A.findings.push({ sev: 'info', kind: 'Evidence', title: `${coverage.missing.length} fact${coverage.missing.length === 1 ? ' has' : 's have'} no source`,
     text: `${coverage.sourced} of ${coverage.all.length} facts have a source (${coverage.percent}%). Add the missing sources before treating those facts as verified.`,
@@ -2407,17 +2430,22 @@ function buildSlides() {
   out.push({ cls: 'cover', html: `<div class="s-bg" data-mount="cover"></div><div class="s-shade"></div><div class="s-kicker">${esc(S.meta.ref)} · Case briefing · ${fmtDate(new Date().toISOString().slice(0, 10))}</div><h1 class="s-title">${esc(S.meta.title || 'Untitled case')}</h1><p class="s-lede">${caseSummary().replace(/<em>/g, '<b>').replace(/<\/em>/g, '</b>')}</p>
     <div class="s-kpis"><div class="s-kpi"><b>${victims.length}</b><span>Victims</span></div><div class="s-kpi"><b style="color:var(--fraud)">${money(A.totalLoss, true)}</b><span>Reported loss</span></div><div class="s-kpi"><b>${evidenceCoverage().percent}%</b><span>Evidence coverage</span></div><div class="s-kpi"><b style="color:var(--question)">${openQ.length}</b><span>Open questions</span></div></div>`,
     mount: { cover: { bounds: null, hs: null, particles: true } } });
+  const why = S.meta.scamReasons || [];
+  if (why.length || (S.meta.scamTypes || []).length) out.push({ html: `<div class="s-kicker">The scam</div><h2 class="s-title md" style="max-width:30ch">${esc(whyTitle())}</h2><div class="s-qgrid" style="margin-top:40px">${why.slice(0, 8).map((t, i) => `<div class="s-qcard" style="animation-delay:${(0.15 + i * 0.08).toFixed(2)}s"><span>⚑</span><p>${esc(t)}</p></div>`).join('')}</div>` });
   out.push({ html: `<div class="s-kicker">Follow the money</div><h2 class="s-title md">How the money moved</h2><div class="s-map" style="margin-top:22px" data-mount="m"></div>`, mount: { m: { bounds: null, hs: null, particles: true } } });
   victims.forEach((st, i) => out.push({ html: `<div class="s-vhead r-victim"><span class="av s-av">${esc(initials(st.v.name))}</span><div style="min-width:0"><div class="s-kicker">Victim ${i + 1} of ${victims.length}</div><h2 class="s-title md" style="margin-top:8px">${esc(st.v.name)}</h2><ul class="s-facts">${st.facts.map(f => `<li>${esc(f)}</li>`).join('')}</ul></div>
       <div class="s-vloss"><div class="s-big" style="color:var(--fraud)">${money(st.loss)}</div><div class="s-biglabel">reported lost</div></div></div><div class="s-map" style="margin-top:22px" data-mount="m"></div>`,
     mount: { m: { bounds: boundsOf(st.frame), hs: st.hs, particles: true } } }));
   keyLinks().forEach((f, i, arr) => out.push({ html: `<div class="s-kicker">Key link ${i + 1} of ${arr.length} · ${esc(f.kind)}</div><h2 class="s-title md" style="max-width:32ch">${esc(f.title)}</h2><p class="s-cap">${f.text}</p><div class="s-map" style="margin-top:18px" data-mount="m"></div><p class="s-evidence">Sources: ${esc(keyLinkSources(f))}</p><div class="s-legend">${LINE_LEGEND}</div>`,
     mount: { m: { bounds: boundsOf([...withOwners(f.nodes)]), hs: hsForIds(f.nodes, f.edges), particles: true } } }));
+  const flagged = [...S.people.map(p => [p, [...(p.flags || []), ...S.accounts.filter(a => A.ownerId.get(a.id) === p.id).flatMap(a => a.flags || [])]]), ...S.accounts.filter(a => !A.ownerId.get(a.id)).map(a => [a, a.flags || []])].filter(([, l]) => l.length).sort((a, b) => b[1].length - a[1].length).slice(0, 6);
+  if (flagged.length) out.push({ html: `<div class="s-kicker">Red flags</div><h2 class="s-title md">Why we suspect them</h2><div class="s-qgrid" style="margin-top:40px">${flagged.map(([r, l], i) => `<div class="s-qcard" style="animation-delay:${(0.15 + i * 0.1).toFixed(2)}s"><span>${l.length}</span><p><b>${esc(r.name || accLabel(r))}</b>${r.role ? ' · ' + esc(ROLE_WORD[r.role] || '') : ''}<br><small style="color:var(--muted)">${esc(l.slice(0, 3).join(' · '))}${l.length > 3 ? ' …' : ''}</small></p></div>`).join('')}</div>`,
+    });
   const tg = timelineGraphic();
   if (tg) out.push({ html: `<div class="s-kicker">Chronology</div><h2 class="s-title md">How the losses built up</h2><div class="s-graphic">${tg.svg}</div>` });
   if (A.recovery.total.lost) { const r = A.recovery.total, pct = n => Math.max(0, Math.min(100, n / r.lost * 100)).toFixed(2) + '%'; out.push({ html: `<div class="s-kicker">Recovery</div><h2 class="s-title md">What can still be recovered</h2><div class="s-kpis" style="margin-top:90px"><div class="s-kpi"><b>${p2m(r.lost)}</b><span>Reported loss</span></div><div class="s-kpi"><b style="color:var(--question)">${p2m(r.frozen)}</b><span>Frozen</span></div><div class="s-kpi"><b style="color:var(--money)">${p2m(r.recovered)}</b><span>Recovered</span></div><div class="s-kpi"><b style="color:var(--fraud)">${p2m(r.outstanding)}</b><span>Outstanding</span></div></div><div class="recovery-bar" style="height:22px;margin-top:65px"><i style="width:${pct(r.returned)};background:var(--money)"></i><i style="width:${pct(r.reimbursed)};background:var(--victim)"></i><i style="width:${pct(Math.min(r.frozen,r.outstanding))};background:var(--question)"></i></div><p class="s-cap">Returned ${p2m(r.returned)} · Reimbursed ${p2m(r.reimbursed)} · Frozen funds remain part of the outstanding amount.</p>` }); }
   out.push({ html: `<div class="s-kicker">Fraud &amp; AML review</div><h2 class="s-title md">One case picture, separate decisions</h2><div class="s-kpis" style="margin-top:58px"><div class="s-kpi"><b>${A.aml.fraudIndicators.length}</b><span>Fraud indicators</span></div><div class="s-kpi"><b>${A.aml.indicators.length}</b><span>AML indicators</span></div><div class="s-kpi"><b style="font-size:26px">${esc(UTR_STATUS[S.meta.utrStatus])}</b><span>Internal UTR</span></div><div class="s-kpi"><b style="font-size:26px">${esc(STR_STATUS[S.meta.strStatus])}</b><span>FINTRAC STR</span></div></div><div class="s-qgrid" style="margin-top:45px"><div class="s-qcard"><span>ATO</span><p>Account takeover is a fraud classification.</p></div><div class="s-qcard"><span>TNF</span><p>True name fraud is a fraud classification.</p></div><div class="s-qcard"><span>UTR</span><p>Internal unusual transaction escalation.</p></div><div class="s-qcard"><span>STR</span><p>External FINTRAC reporting decision.</p></div></div>` });
-  out.push({ html: `<div class="s-kicker">AI-assisted intake</div><h2 class="s-title md">Structured data in, connected case map out</h2><div class="s-qgrid" style="margin-top:62px"><div class="s-qcard"><span>1</span><p>Use approved workplace AI to compile parties, accounts, transactions and identifiers.</p></div><div class="s-qcard"><span>2</span><p>Return pipe-separated rows with source references and uncertainty preserved.</p></div><div class="s-qcard"><span>3</span><p>An analyst reviews the rows before adding them to the case.</p></div><div class="s-qcard"><span>4</span><p>Never provide full card data, credentials, PINs, CVVs or authentication codes.</p></div></div><p class="s-cap" style="margin-top:55px">Transactions paste directly. The other formats provide a consistent review and handoff structure.</p>` });
+  out.push({ html: `<div class="s-kicker">Getting data in</div><h2 class="s-title md">Existing exports in, connected case map out</h2><div class="s-qgrid" style="margin-top:62px"><div class="s-qcard"><span>1</span><p>Export statements, payment lists and customer records as CSV, or copy the cells from Excel.</p></div><div class="s-qcard"><span>2</span><p>Drop them in. The map reads the columns and pulls names out of statement descriptions.</p></div><div class="s-qcard"><span>3</span><p>An analyst unticks everyday spending, marks who is who and records the red flags.</p></div><div class="s-qcard"><span>4</span><p>Everything stays on the computer. Every line keeps its source.</p></div></div><p class="s-cap" style="margin-top:55px">No AI or connection needed. Approved workplace AI can also turn free-text notes into rows.</p>` });
   if (victims.length) out.push({ html: `<div class="s-kicker">Impact</div><h2 class="s-title md">${money(A.totalLoss)} reported lost</h2><div class="s-bars">${victims.map(st => `<div class="s-bar r-victim"><span class="av">${esc(initials(st.v.name))}</span><span class="nm">${esc(st.v.name)}</span><span class="trk"><i style="--w:${(st.loss / maxL * 100).toFixed(1)}%"></i></span><b>${money(st.loss)}</b></div>`).join('')}</div>` });
   const qs = [...openQ.map(q => ({ t: q.text, s: false })), ...A.suggested.map(x => ({ t: x.text, s: true }))].slice(0, 6);
   out.push({ html: `<div class="s-kicker">Next steps</div><h2 class="s-title md">${openQ.length ? `${openQ.length} open question${openQ.length > 1 ? 's' : ''}` : 'What to ask next'}</h2><div class="s-qgrid">${qs.map((q, i) => `<div class="s-qcard ${q.s ? 'sug' : ''}" style="animation-delay:${(0.15 + i * 0.1).toFixed(2)}s"><span>${i + 1}</span><p>${esc(q.t)}</p>${q.s ? '<small>Suggested by the map</small>' : ''}</div>`).join('')}</div>` });
@@ -2654,11 +2682,11 @@ function editPerson(p, role) {
     <div class="grid2">${f('f-phone', 'Phone', p.phone, { ph: '416-555-0100' })}${f('f-email', 'Email', p.email, { type: 'email', ph: 'name@example.ca' })}</div>
     ${f('f-notes', 'Notes', p.notes, { area: true, ph: 'How they are connected, what happened and anything relevant' })}
     <details class="batch-guide"><summary>AML / KYC profile</summary><div class="guide-body"><div class="grid2">${f('f-province', 'Province / territory', p.province, { ph: 'e.g. ON' })}${f('f-occupation', 'Occupation or business', p.occupation)}</div><div class="field"><label for="f-pep">PEP / HIO status</label><select class="input" id="f-pep">${[['none','None identified'],['domestic-pep','Domestic PEP'],['foreign-pep','Foreign PEP'],['hio','Head of an international organization'],['family-associate','Family member or close associate'],['unknown','Unknown']].map(([v,l]) => `<option value="${v}" ${v === (p.pepStatus || 'none') ? 'selected' : ''}>${l}</option>`).join('')}</select></div>${f('f-wealth', 'Source of wealth', p.sourceOfWealth, { ph: 'If known' })}</div></details>
-    ${identifiersForm(p)}${evidenceForm(p)}`,
+    ${p.role !== 'victim' ? flagsForm(p, flagKind(p.role)) : ''}${identifiersForm(p)}${evidenceForm(p)}`,
     () => {
       if (!val('f-name')) { toast('Add a name first'); return false; }
        const identifiers = readIdentifiers(); if (!identifiers) return false;
-       Object.assign(p, { role: $('#f-role').value, name: val('f-name'), aliases: val('f-aliases'), phone: val('f-phone'), email: val('f-email'), province: val('f-province'), occupation: val('f-occupation'), pepStatus: $('#f-pep').value, sourceOfWealth: val('f-wealth'), notes: val('f-notes'), identifiers, ...readEvidence() });
+       Object.assign(p, { role: $('#f-role').value, name: val('f-name'), aliases: val('f-aliases'), phone: val('f-phone'), email: val('f-email'), province: val('f-province'), occupation: val('f-occupation'), pepStatus: $('#f-pep').value, sourceOfWealth: val('f-wealth'), notes: val('f-notes'), identifiers, flags: readFlags(p.flags), ...readEvidence() });
       if (isNew) state.people.push(p);
       toast(isNew ? 'Added ' + p.name : 'Saved');
     },
@@ -2675,7 +2703,7 @@ function editAccount(a, presetHolder = '') {
     ${f('f-number', 'Transit and account number or wallet address', a.number, { mono: true, ph: 'e.g. 003-10234 4389102' })}
      ${f('f-anotes', 'Notes', a.notes, { area: true })}
      <details class="batch-guide"><summary>Fraud / account access</summary><div class="guide-body"><p class="hint">Record access evidence only. Never enter the PIN itself.</p>${f('f-pin-failed', 'Failed PIN attempts', a.pinFailedAttempts || '', { type: 'number', step: '1', ph: '0' })}<div class="grid2">${f('f-pin-set', 'PIN set date', a.pinSetDate, { type: 'date' })}${f('f-pin-change', 'Last PIN change', a.pinLastChanged, { type: 'date' })}</div></div></details>
-     <details class="batch-guide"><summary>AML / expected activity</summary><div class="guide-body"><div class="grid2">${f('f-country', 'Country', a.country || 'CA', { ph: 'CA' })}<div class="field"><label for="f-risk">Risk rating</label><select class="input" id="f-risk">${[['unknown','Unknown'],['low','Low'],['medium','Medium'],['high','High']].map(([v,l]) => `<option value="${v}" ${v === (a.riskRating || 'unknown') ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>${f('f-expected', 'Expected activity', a.expectedActivity)}${f('f-funds', 'Source of funds', a.sourceOfFunds)}</div></details>${identifiersForm(a)}
+     <details class="batch-guide"><summary>AML / expected activity</summary><div class="guide-body"><div class="grid2">${f('f-country', 'Country', a.country || 'CA', { ph: 'CA' })}<div class="field"><label for="f-risk">Risk rating</label><select class="input" id="f-risk">${[['unknown','Unknown'],['low','Low'],['medium','Medium'],['high','High']].map(([v,l]) => `<option value="${v}" ${v === (a.riskRating || 'unknown') ? 'selected' : ''}>${l}</option>`).join('')}</select></div></div>${f('f-expected', 'Expected activity', a.expectedActivity)}${f('f-funds', 'Source of funds', a.sourceOfFunds)}</div></details>${flagsForm(a, 'account')}${identifiersForm(a)}
      <div class="sub-h">Recovery status</div><div class="field"><label for="f-status">Account status</label><select class="input" id="f-status">${[['unknown','Unknown'],['open','Open'],['freeze-requested','Hold / restriction requested'],['frozen','Restricted / frozen'],['closed','Closed']].map(([v,l]) => `<option value="${v}" ${v === (a.status || 'unknown') ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
      <div class="grid2">${f('f-freeze-requested', 'Request date', a.freezeRequested, { type: 'date' })}${f('f-frozen-date', 'Restriction date', a.frozenDate, { type: 'date' })}</div>
      ${f('f-frozen-amount', `Amount frozen (${state.meta.currency})`, a.frozenAmount || '', { type: 'number', step: '0.01' })}
@@ -2684,7 +2712,7 @@ function editAccount(a, presetHolder = '') {
     () => {
       if (!val('f-number') && !val('f-inst')) { toast('Add a provider or an account number'); return false; }
        const identifiers = readIdentifiers(); if (!identifiers) return false;
-       Object.assign(a, { holder: val('f-holder'), institution: val('f-inst'), number: val('f-number'), type: $('#f-type').value, pinFailedAttempts: Math.max(0, Math.floor(Number(val('f-pin-failed')) || 0)), pinSetDate: parseDate(val('f-pin-set')), pinLastChanged: parseDate(val('f-pin-change')), country: val('f-country'), riskRating: $('#f-risk').value, expectedActivity: val('f-expected'), sourceOfFunds: val('f-funds'), notes: val('f-anotes'), identifiers, status: $('#f-status').value, freezeRequested: parseDate(val('f-freeze-requested')), frozenDate: parseDate(val('f-frozen-date')), frozenAmount: parseAmount(val('f-frozen-amount')), bankRef: val('f-bank-ref'), bankContact: val('f-bank-contact'), ...readEvidence() });
+       Object.assign(a, { holder: val('f-holder'), institution: val('f-inst'), number: val('f-number'), type: $('#f-type').value, pinFailedAttempts: Math.max(0, Math.floor(Number(val('f-pin-failed')) || 0)), pinSetDate: parseDate(val('f-pin-set')), pinLastChanged: parseDate(val('f-pin-change')), country: val('f-country'), riskRating: $('#f-risk').value, expectedActivity: val('f-expected'), sourceOfFunds: val('f-funds'), notes: val('f-anotes'), identifiers, flags: readFlags(a.flags), status: $('#f-status').value, freezeRequested: parseDate(val('f-freeze-requested')), frozenDate: parseDate(val('f-frozen-date')), frozenAmount: parseAmount(val('f-frozen-amount')), bankRef: val('f-bank-ref'), bankContact: val('f-bank-contact'), ...readEvidence() });
       if (isNew) state.accounts.push(a);
     },
      isNew ? null : () => { state.accounts = state.accounts.filter(x => x.id !== a.id); state.transactions = state.transactions.filter(t => t.from !== a.id && t.to !== a.id); state.recoveries.forEach(r => { if (r.fromAccount === a.id) r.fromAccount = ''; }); delete state.pos[a.id]; });
@@ -3074,13 +3102,14 @@ function tiAmount(v) {
   const n = Math.abs(parseAmount(s.replace(/[()]/g, '').replace(/\b(dr|cr)\b/ig, '')));
   return neg ? -n : n;
 }
-const titleCase = s => /[a-z]/.test(s) ? s : s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\b(Inc|Ltd|Llc|Fze|Td|Rbc|Bmo|Cibc)\b/g, w => /Inc|Ltd|Llc/.test(w) ? w : w.toUpperCase());
+const titleCase = s => /[a-z]/.test(s) ? s : s.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/\b(Inc|Ltd|Llc|Fze|Td|Rbc|Bmo|Cibc|Bc|Atm)\b/g, w => /Inc|Ltd|Llc/.test(w) ? w : w.toUpperCase());
 function tiParty(desc) {
+  if (/\b(atm|abm)\b|cash withdrawal|withdrawal.*\bcash\b/i.test(desc)) return 'Cash withdrawal';
   // drop the banking words and reference numbers, keep the name
   let s = String(desc || '').replace(/\s+/g, ' ').trim()
     .replace(/\b(ref|reference|conf|confirmation|trace|id|txn|inv|invoice)\b\.?\s*(no\.?|#)?\s*:?\s*[\w-]*\d[\w-]*/ig, ' ')
     .replace(/[#*]*\b[A-Z]*\d[\dA-Z-]{3,}\b/gi, ' ')
-    .replace(/\b(interac|e-?\s?transfers?|e-?tfr|e-?trf|etransfer|send|sent|received?|autodeposit|auto-deposit|request|wire|swift|eft|ach|pos|purchase|online|internet|mobile|telephone|banking|transfer|tfr|trf|xfer|payment|pmt|bill|pre-?authori[sz]ed|debit|credit|deposit|dep|withdrawal|incoming|outgoing|domestic|international|payroll|misc|fee|to|from|in|out)\b/gi, ' ')
+    .replace(/\b(interac|e-?\s?transfers?|e-?tfr|e-?trf|etransfer|send|sent|received?|autodeposit|auto-deposit|request|wire|swift|eft|ach|pos|purchase|online|internet|mobile|telephone|banking|transfer|tfr|trf|xfer|payment|pmt|bill|pre-?authori[sz]ed|debit|credit|deposit|dep|withdrawal|incoming|outgoing|domestic|international|payroll|misc|fee|retail|electronic|funds|atm|abm|pay|chq|cheque|to|from|in|out)\b/gi, ' ')
     .replace(/\s{2,}/g, ' ').replace(/^[\s,:;/.-]+|[\s,:;/.-]+$/g, '').trim();
   return s && /[a-z]/i.test(s) ? titleCase(s) : 'Unknown other side';
 }
@@ -3092,11 +3121,30 @@ const TI_ROLE_WORD = { other: 'Other', mule: 'Mule', suspect: 'Suspect', busines
 let tiHandlers = null;
 $('#dlg-body').addEventListener('click', e => tiHandlers?.click(e));
 $('#dlg-body').addEventListener('change', e => tiHandlers?.change(e));
+// "DSX SUPPLY SOLUTIONS" on a statement is the "DSX Supply Solutions Inc." already in the case
+const bareName = n => normName(n).replace(/\b(inc|ltd|llc|corp|corporation|limited|co|company|the)\b/g, ' ').replace(/\s+/g, ' ').trim();
+function knownName(name) {
+  const b = bareName(name); if (b.length < 3) return name;
+  const names = [...state.people.flatMap(p => [p.name, ...String(p.aliases || '').split(',')]), ...state.accounts.map(a => a.holder)].map(x => String(x || '').trim()).filter(Boolean);
+  const hit = names.find(n => bareName(n) === b) || names.find(n => { const c = bareName(n); return c.includes(' ') && b.includes(' ') && (` ${b} `.includes(` ${c} `) || ` ${c} `.includes(` ${b} `)); });
+  const p = hit && state.people.find(q => [q.name, ...String(q.aliases || '').split(',')].some(x => x.trim() === hit));
+  return p ? p.name : hit || name;
+}
+const SAMPLE_CIBC = `2025-02-12,"ELECTRONIC FUNDS TRANSFER DSX SUPPLY SOLUTIONS",,15000.00
+2025-02-14,"RETAIL PURCHASE 000001234567 SAVE ON FOODS",212.45,
+2025-02-18,"E-TRANSFER 105623445 KIRA DALTON",4000.00,
+2025-03-01,"PREAUTHORIZED DEBIT BC HYDRO",96.30,
+2025-03-03,"INTERNET BILL PAY 000000291834 ROGERS",120.00,
+2025-04-23,"E-TRANSFER 105899120 JORDAN PIKE",,6000.00
+2025-04-24,"E-TRANSFER 105899431 KIRA DALTON",5500.00,
+2025-05-02,"ATM WITHDRAWAL 00455 LONSDALE",800.00,
+2025-06-10,"ELECTRONIC FUNDS TRANSFER NEWTON CRYPTO LTD",7000.00,
+2025-06-11,"RETAIL PURCHASE 000001298811 LONDON DRUGS",64.18,`;
 function openTableImport(prefill = '') {
   if (dlg.open) dlg.close();
   const ti = { rows: [], head: [], hi: -1, kind: '', map: {}, parties: new Map(), min: 0, dateOrder: '' };
   openDialog('Import a spreadsheet or statement', `<div class="guide-list import-steps">
-      <div class="guide-step"><span>1</span><div><b>Paste the rows, or open a file</b><p>Copy the cells straight from Excel, or open a CSV file exported from any system. Include the row with the column names. For an Excel file, copy the cells or save it as CSV first.</p><button class="btn" type="button" id="ti-file-btn">Open a CSV file</button> <span class="hint" id="ti-file-name"></span></div></div>
+      <div class="guide-step"><span>1</span><div><b>Paste the rows, or open a file</b><p>Copy the cells straight from Excel, or open a CSV file exported from any system. Include the row with the column names. For an Excel file, copy the cells or save it as CSV first.</p><button class="btn" type="button" id="ti-file-btn">Open a CSV file</button> <button class="btn ghost" type="button" id="ti-sample">Try a sample CIBC statement</button> <span class="hint" id="ti-file-name"></span></div></div>
     </div>
     <div class="field"><label for="f-table">Rows</label><textarea class="input mono" id="f-table" style="min-height:120px;font-size:11.5px;white-space:pre" placeholder="Paste cells from Excel or a CSV export here"></textarea></div>
     <div id="ti-setup"></div><div id="ti-prev" aria-live="polite"></div>
@@ -3121,7 +3169,7 @@ function openTableImport(prefill = '') {
     if (ti.hi < 0 && ti.rows.length) {
       const body = ti.rows.slice(0, 30), share = (i, test) => body.filter(r => r[i] && test(r[i])).length / body.length;
       const dateCol = ti.head.findIndex((_, i) => share(i, looksDate) > .6);
-      const nums = ti.head.map((_, i) => i).filter(i => i !== dateCol && share(i, c => looksNumberish(c) && /\d/.test(c)) > .3);
+      const nums = ti.head.map((_, i) => i).filter(i => i !== dateCol && share(i, c => looksNumberish(c) && /\d/.test(c)) > .1);
       const text = ti.head.map((_, i) => i).filter(i => i !== dateCol && !nums.includes(i) && share(i, c => /[a-z]{3}/i.test(c)) > .5);
       if (dateCol >= 0 && nums.length) {
         ti.kind = 'statement';
@@ -3130,7 +3178,7 @@ function openTableImport(prefill = '') {
         if (nums.length >= 2 && !signed) { ti.map.debit = nums[0]; ti.map.credit = nums[1]; } else ti.map.amount = nums[0];
       }
     }
-    renderSetup(); renderPrev();
+    renderSetup(); presetOwner(); renderPrev();
   };
   const data = () => ti.rows.slice(ti.hi + 1).filter(r => r.length > 1 || r[0]);
   const colSel = (k, label) => `<div class="field ti-col"><label for="ti-c-${k}">${label}</label><select class="input" id="ti-c-${k}" data-col="${k}"><option value="">(none)</option>${ti.head.map((h, i) => `<option value="${i}" ${ti.map[k] === i ? 'selected' : ''}>${esc(clip(h, 32))}</option>`).join('')}</select></div>`;
@@ -3148,6 +3196,11 @@ function openTableImport(prefill = '') {
         <div class="ti-cols" id="ti-newacc">${f('ti-holder', 'Owner', '', { ph: 'e.g. Jane Smith' })}${f('ti-bank', 'Bank', '', { ph: 'e.g. RBC' })}${f('ti-number', 'Account number', '', { ph: 'e.g. 003-11111 2229102' })}<div class="field"><label>Owner is</label>${choice('ti-hrole', TI_ROLES.map(([v, l]) => [v, l]), 'victim')}</div></div></div></div>` : ''}
     </div>`;
   }
+  function presetOwner() {
+    const sel = $('#ti-acc'); if (!sel || !ti.presetAcc) return;
+    const a = state.accounts.find(x => norm(x.number) === norm(ti.presetAcc));
+    if (a) { sel.value = a.id; $('#ti-newacc').hidden = true; } else { $('#ti-holder').value = 'Grant Whitaker'; $('#ti-bank').value = 'CIBC'; $('#ti-number').value = ti.presetAcc; }
+  }
   function tiEntries() {
     const m = ti.map, rows = data(), rd = tiDateReader(rows.map(r => r[m.date]), ti.dateOrder), get = (r, k) => m[k] == null ? '' : (r[m[k]] ?? '');
     return { rows, rd, get };
@@ -3159,7 +3212,7 @@ function openTableImport(prefill = '') {
     const extraDesc = ti.head.map((h, i) => /(^| )(description|details|memo|narrative|payee|particulars)/.test(normName(h)) && !mapped.has(i) ? i : -1).filter(i => i >= 0);
     return rows.map(r => {
       const signed = ti.map.amount != null && !get(r, 'debit') && !get(r, 'credit') ? tiAmount(get(r, 'amount')) : Math.abs(tiAmount(get(r, 'credit'))) - Math.abs(tiAmount(get(r, 'debit')));
-      const desc = [get(r, 'desc'), ...extraDesc.map(i => r[i] || '')].filter(Boolean).join(' '), name = get(r, 'party') ? titleCase(nameSafe(get(r, 'party'))) : tiParty(desc);
+      const desc = [get(r, 'desc'), ...extraDesc.map(i => r[i] || '')].filter(Boolean).join(' '), name = knownName(get(r, 'party') ? titleCase(nameSafe(get(r, 'party'))) : tiParty(desc));
       const inDesc = (desc.match(/\b\d{3,5}[- ]\d{4,6}[- ]?\d{0,9}\b|\b[A-Z]{2}\d{2}[A-Z0-9]{10,30}\b|\b(bc1|0x)[a-z0-9]{20,}\b/i) || [])[0] || '';
       return { date: rd(get(r, 'date')), amount: Math.abs(signed), out: signed < 0, name, acct: pipeSafe(get(r, 'partyAcct') || inDesc), desc: pipeSafe(desc) };
     }).filter(x => x.amount && x.amount >= ti.min);
@@ -3203,7 +3256,7 @@ function openTableImport(prefill = '') {
     statementRows().forEach(x => {
       const p = ti.parties.get(normName(x.name) || 'unknown'); if (!p || !p.on) return;
       const name = nameSafe(p.name) || 'Unknown';
-      if (!/^unknown/i.test(name) && !seen.has(normName(name)) && !state.people.some(q => normName(q.name) === normName(name)) && normName(name) !== normName(holder)) { seen.add(normName(name)); people.push(`${name} | ${TI_ROLE_WORD[p.role]} | | | `); }
+      if (!/^(unknown|cash withdrawal)/i.test(name) && !seen.has(normName(name)) && !state.people.some(q => normName(q.name) === normName(name)) && normName(name) !== normName(holder)) { seen.add(normName(name)); people.push(`${name} | ${TI_ROLE_WORD[p.role]} | | | `); }
       const other = side(name, x.acct);
       lines.push([x.date, x.out ? own : other, x.out ? other : own, x.amount, x.desc].join(' | '));
     });
@@ -3213,6 +3266,7 @@ function openTableImport(prefill = '') {
   box.addEventListener('input', () => { ti.kind = ''; ti.parties.clear(); reparse(); });
   tiHandlers = {
     click: e => {
+      if (e.target.closest('#ti-sample')) { ti.kind = ''; ti.parties.clear(); ti.presetAcc = '010-55120 9934011'; $('#ti-file-name').textContent = 'Made-up CIBC export for Grant Whitaker (Operation Tidewater)'; load(SAMPLE_CIBC); return; }
       if (!e.target.closest('#ti-file-btn')) return;
       const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.csv,.tsv,.txt,text/csv,text/plain';
       inp.onchange = () => { const file = inp.files[0]; if (!file) return; const rdr = new FileReader(); rdr.onload = () => { $('#ti-file-name').textContent = file.name; ti.kind = ''; ti.parties.clear(); load(String(rdr.result)); }; rdr.readAsText(file); };
@@ -3233,6 +3287,61 @@ function openTableImport(prefill = '') {
     }
   };
   if (prefill) load(prefill);
+}
+/* ---------- red flags: why we suspect a person, business or account, and why we think it is a scam ---------- */
+const FLAG_SUGGEST = {
+  suspect: ['Met the victim online and never in person', 'Identity cannot be verified', 'Profile photos found elsewhere online (reverse image search)', 'Phone is an internet (VoIP) number', 'Email or website domain created shortly before contact (WHOIS)', 'Asked for money for emergencies, fees or travel', 'Moved the chat to WhatsApp or Telegram', 'Promised big returns or to recover lost money', 'Same phone, email or IP as another suspect', 'Pressured the victim to keep it secret', 'Told the victim what to say to the bank'],
+  business: ['Incorporated shortly before the first payment', 'Website domain created shortly before contact (WHOIS)', 'Not registered to sell investments (securities regulator search)', 'Named in a public scam warning', 'No website, staff or real trading activity', 'Registered at a residential or virtual office', 'Shares an address or director with other suspect companies', 'Name copies a real company (lookalike)', 'Money leaves within 1–2 days of arriving', 'Payments do not match the stated business', 'Sends money overseas with vague invoices', 'Stopped responding after payment'],
+  mule: ['Account opened shortly before the payments', 'Money passed on within 1–2 days', 'Receives from people they do not know', 'Activity does not fit their job or income', 'Says they were paid to receive money', 'Same device or IP as another account holder', 'Converts money to crypto or cash quickly'],
+  account: ['Newly opened', 'Money in and out within days (pass-through)', 'Many unrelated people paying in', 'Activity does not match expected use', 'Linked to crypto purchases', 'Balance kept near zero', 'Wallet reported in public scam databases', 'Logins from a VPN or another country']
+};
+const flagKind = role => role === 'business' ? 'business' : isSubjectRole(role) ? 'suspect' : 'mule';
+const SCAMS = {
+  romance: { label: 'Romance scam', reasons: ['Contact started online (dating app or social media)', 'Never met in person; always an excuse not to video call', 'Relationship moved fast, with declarations of love', 'Asked for money for emergencies, travel or fees', 'Asked to keep the relationship secret', 'Paid people the victim had never heard of'] },
+  investment: { label: 'Investment scam', reasons: ['Promised guaranteed or very high returns', 'Platform showed profits that could not be withdrawn', 'Asked for more money before a withdrawal (fees, taxes)', 'Company is not registered to sell investments', 'Pressure to invest more, quickly'] },
+  recovery: { label: 'Recovery scam', reasons: ['Contacted out of the blue with an offer to recover lost money', 'Asked for fees up front', 'Claimed to be police, a lawyer or a government agency', 'Used the same contact details as the first scam'] },
+  bec: { label: 'Invoice / email scam', reasons: ['Supplier bank details changed by email', 'Email address copies the real one with a small change', 'Urgent request to pay', 'Real supplier never received the payments'] },
+  emergency: { label: 'Emergency / grandparent scam', reasons: ['Caller said a relative was in trouble (jail, hospital, accident)', 'Asked for bail or fees straight away', 'Told not to tell other family members', 'Payment by e-Transfer, cash or gift cards'] },
+  rental: { label: 'Rental scam', reasons: ['Landlord could not show the place in person', 'Deposit asked for before any viewing', 'Rent well below the local price'] },
+  purchase: { label: 'Online purchase scam', reasons: ['Price well below market value', 'Seller asked for a deposit before any viewing', 'Seller stopped responding after payment'] },
+  other: { label: 'Other scam', reasons: [] }
+};
+const scamLabel = () => { const t = (state.meta.scamTypes || []).map(k => SCAMS[k]?.label.toLowerCase()).filter(Boolean); return t.length ? (t.length > 1 ? t.slice(0, -1).join(', ') + ' and ' + t[t.length - 1] : t[0]) : ''; };
+const whyTitle = () => scamLabel() ? `Why we think this is a${/^[aeiou]/.test(scamLabel()) ? 'n' : ''} ${scamLabel()}` : 'Why we think this is a scam';
+function flagsForm(r, kind) {
+  const have = r.flags || [], sugg = FLAG_SUGGEST[kind] || [], own = have.filter(x => !sugg.includes(x));
+  return `<details class="batch-guide" ${have.length ? 'open' : ''}><summary>Why we suspect ${kind === 'account' ? 'this account' : 'them'} (red flags)${have.length ? ' · ' + have.length : ''}</summary><div class="guide-body"><div class="flag-picks">${sugg.map(t => `<label class="flag-pick"><input type="checkbox" data-flag value="${esc(t)}" ${have.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>${f('f-flags-own', 'Other reasons (one per line)', own.join('\n'), { area: true, ph: 'e.g. Director was named in an earlier fraud case' })}</div></details>`;
+}
+const readFlags = (old = []) => $('#f-flags-own') ? [...$$('#dlg-body [data-flag]:checked').map(x => x.value), ...val('f-flags-own').split('\n').map(s => s.trim()).filter(Boolean)] : old;
+const flagTag = n => n ? [['hot', `⚑ ${n} RED FLAG${n > 1 ? 'S' : ''}`]] : [];
+function flagsHTML(r, extra = []) {
+  const groups = [[null, r.flags || []], ...extra].filter(([, l]) => l.length);
+  if (!groups.length) return '';
+  const n = groups.reduce((s, [, l]) => s + l.length, 0);
+  return `<div class="sub-h">Why we suspect ${r.role ? 'them' : 'this account'} · ${n}</div><ul class="flag-list">${groups.map(([label, l]) => l.map(t => `<li>${esc(t)}${label ? `<small>${esc(label)}</small>` : ''}</li>`).join('')).join('')}</ul>`;
+}
+function whyHTML() {
+  const types = state.meta.scamTypes || [], reasons = state.meta.scamReasons || [];
+  if (!types.length && !reasons.length) return `<button class="btn why-add" type="button" data-edit-why>+ Say what kind of scam this is, and why</button>`;
+  return `<div class="why-card"><div class="why-head"><b>${esc(whyTitle())}</b><button class="btn small ghost" type="button" data-edit-why>Edit</button></div>${types.length ? `<div class="why-types">${types.map(k => `<span>${esc(SCAMS[k]?.label || k)}</span>`).join('')}</div>` : ''}<ul class="flag-list">${reasons.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+}
+function editWhy() {
+  const m = state.meta, picked = new Set(m.scamTypes || []), have = m.scamReasons || [];
+  const draw = () => {
+    const sugg = [...picked].flatMap(k => SCAMS[k]?.reasons || []), own = have.filter(x => !Object.values(SCAMS).some(s => s.reasons.includes(x)));
+    $('#why-reasons').innerHTML = `${sugg.length ? `<div class="flag-picks">${sugg.map(t => `<label class="flag-pick"><input type="checkbox" data-flag value="${esc(t)}" ${have.includes(t) ? 'checked' : ''}><span>${esc(t)}</span></label>`).join('')}</div>` : '<p class="hint">Pick a scam type above to see common signs, or write your own below.</p>'}${f('f-flags-own', 'Other reasons (one per line)', own.join('\n'), { area: true, ph: 'e.g. Same phone number used in both scams' })}`;
+  };
+  openDialog('What kind of scam, and why', `<p class="hint" style="font-size:12px;margin-top:0">Pick one or more. Tick the signs that apply; they show on the Findings panel and in Present.</p>
+    <div class="flag-types">${Object.entries(SCAMS).map(([k, s]) => `<label class="flag-pick"><input type="checkbox" data-scam value="${k}" ${picked.has(k) ? 'checked' : ''}><span>${esc(s.label)}</span></label>`).join('')}</div><div id="why-reasons"></div>`,
+    () => { m.scamTypes = [...picked]; m.scamReasons = readFlags(); });
+  draw();
+  $$('#dlg-body [data-scam]').forEach(x => x.addEventListener('change', () => { const keep = readFlags(); have.splice(0, have.length, ...keep); x.checked ? picked.add(x.value) : picked.delete(x.value); draw(); }));
+}
+function flagFinding() {
+  const rows = [...state.people.map(p => [p, (p.flags || []).length + state.accounts.filter(a => A.ownerId.get(a.id) === p.id).reduce((s, a) => s + (a.flags || []).length, 0)]), ...state.accounts.filter(a => !A.ownerId.get(a.id)).map(a => [a, (a.flags || []).length])].filter(([, n]) => n).sort((a, b) => b[1] - a[1]);
+  if (!rows.length) return [];
+  const name = r => r.name || accLabel(r);
+  return [{ sev: 'med', kind: 'Red flags', title: `Red flags recorded for ${rows.length} ${rows.length === 1 ? 'party' : 'parties'}`, text: rows.slice(0, 6).map(([r, n]) => `<b>${esc(name(r))}</b> (${n})`).join(', ') + (rows.length > 6 ? ` and ${rows.length - 6} more` : '') + '. Open a card to see the reasons.', nodes: rows.map(([r]) => r.id), edges: [] }];
 }
 function parseSide(s) {
   s = s.trim(); if (!s) return null;
@@ -3321,6 +3430,7 @@ $('#case-switch').addEventListener('click', e => {
   openMenu(e.currentTarget, `<div class="mh">Cases on this device</div>${cases.map(([id, c]) => `<button type="button" data-case="${id}" class="${id === lib.current ? 'cur' : ''}"><span><b style="font-weight:600">${esc(c.meta.title || 'Untitled case')}</b><small>${esc(c.meta.ref || '')} · ${c.people.length} people · ${c.transactions.length} payments</small></span></button>`).join('')}<hr>
     <button type="button" data-m="new">${IC('M12 5v14M5 12h14')}New case</button><hr><div class="mh">Demo cases (made up)</div><button type="button" data-m="demo"><span><b style="font-weight:600">Operation Lantern</b><small>One victim, three scams, 2023 to 2026</small></span></button><button type="button" data-m="demo2"><span><b style="font-weight:600">Operation Tidewater</b><small>Four victims, one mule network, 2024 to 2026</small></span></button><hr><button type="button" data-m="dup">${IC('M8 8h12v12H8zM4 16V4h12')}Duplicate this case</button>
     <button type="button" data-m="import">${IC('M12 21V9M7 14l5-5 5 5M5 3h14')}Open a case file (.json)</button>
+    <button type="button" data-m="why">${IC('M5 21V4h11l-2 4 2 4H5')}What kind of scam, and why</button>
     <button type="button" data-m="settings">${IC('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM4 12h2M18 12h2M12 4v2M12 18v2')}Case details &amp; currency</button><hr>
     <button type="button" data-m="delete" style="color:var(--fraud)">${IC('M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13')}Delete this case</button>`);
 });
@@ -3356,7 +3466,7 @@ menu.addEventListener('click', e => {
   }
   closeMenus();
   ({ new: () => addCase(emptyCase(), 'New case created'), demo: () => openDemo('lantern'), demo2: () => openDemo('tidewater'), dup: () => { const c = sanitize(JSON.parse(JSON.stringify(state))); c.meta.title = (c.meta.title || 'Case') + ' (copy)'; addCase(c, 'Case duplicated'); },
-     import: () => $('#file-in').click(), settings: editSettings,
+     import: () => $('#file-in').click(), settings: editSettings, why: editWhy,
      pptx: exportPPTX, png: exportPNG, json: exportJSON, present: openPresenter })[m]?.();
 });
 $('#file-in').addEventListener('change', e => {
@@ -3422,6 +3532,7 @@ $('#rtabs').addEventListener('click', e => { const t = e.target.closest('[data-r
 function onRailAction(e) {
   if (e.target.closest('[data-show-findings]')) { showAllFindings = !showAllFindings; renderRight(); return; }
   if (e.target.closest('[data-edit-aml]')) return editAML();
+  if (e.target.closest('[data-edit-why]')) return editWhy();
   if (e.target.closest('[data-copy-master]')) return copyText(MASTER_AI_PROMPT, 'Instructions copied. Paste them into ChatGPT with your case notes.');
   if (e.target.closest('[data-act="paste"]')) return openPaste();
   const rv = e.target.closest('[data-recover-victim]'); if (rv) return editRecovery(null, rv.dataset.recoverVictim);
