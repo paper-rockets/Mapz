@@ -1,0 +1,50 @@
+CASE BRAIN — QUICK USER GUIDE
+=============================
+
+1. OPEN THE APP
+Double-click "Start Server.cmd".
+Keep the black window open while using Case Brain.
+Open the address shown in that window, usually:
+http://localhost:3008/traceline/
+
+1b. SEE THE DEMO FIRST (OPTIONAL)
+Click the case name at the top, then "Open the demo case".
+Press the gold play button at the bottom to watch the money move
+from 2023 to 2026. Tap any card to see who it is linked to.
+
+2. ADD CASE DATA (WITH CHATGPT)
+Click "Import data" at the top.
+Click "Copy instructions".
+In your work ChatGPT: paste the instructions, paste all your case notes
+underneath, and send.
+ChatGPT answers with four short lists: PEOPLE, ACCOUNTS, PAYMENTS
+and NOTES. In PAYMENTS it can just use names, e.g. Jane Smith.
+Copy ChatGPT's whole answer (its copy button is easiest) and paste it into
+the big box in Case Brain.
+Check the counts, then click "Add to case".
+
+Headings, tables and extra chat text in the answer are fine.
+If a few lines can't be read, the app adds everything else and lists
+the ones it left out, with the reason. Pasting again never adds anything twice.
+
+You can also add or edit individual people, accounts and payments using
+the tabs on the left.
+
+3. EXPLORE THE CASE
+Click a person, account, payment or finding to see more detail.
+Drag the map to move around.
+Use + and - to zoom, or use the fit-to-screen button.
+Use the tabs on the right for Findings, Review, Questions and Dossier.
+
+4. PRESENT OR EXPORT
+Click "Present" for a full-screen case briefing.
+Click "Export" to save a backup, image or PowerPoint presentation.
+
+5. FINISH
+Case Brain saves changes automatically in this browser on this computer.
+Close the browser tab when finished.
+Close the black server window to stop the app.
+
+IMPORTANT
+Use approved test or case data according to your organization's policies.
+Do not enter PINs, passwords, CVVs, authentication codes or complete card numbers.
