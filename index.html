@@ -948,6 +948,15 @@ function isBundledExample(c) {
     if (old) { try { if (isBundledExample(sanitize(JSON.parse(old)))) localStorage.removeItem('case-map-v1'); } catch (_) {} }
     if (!lib) lib = newLib(emptyCase());
   } catch (_) { lib = newLib(emptyCase()); }
+  // Nothing real on this device yet: open straight into the demo cases instead of an empty page
+  const blank = c => !c.people.length && !c.accounts.length && !c.transactions.length;
+  if (Object.values(lib.cases).every(blank)) {
+    Object.keys(lib.cases).forEach(k => delete lib.cases[k]);
+    const b = uid('c'), a = uid('c');
+    lib.cases[b] = demoCase2(); lib.cases[b].meta.updated = 1;
+    lib.cases[a] = demoCase(); lib.cases[a].meta.updated = 2;
+    lib.current = a;
+  }
   state = lib.cases[lib.current];
   try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch (_) {}
 })();
